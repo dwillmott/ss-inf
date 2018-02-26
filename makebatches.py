@@ -30,7 +30,7 @@ def findsize(datafile):
         pass
     f.close()
     
-    return (i+1)/5
+    return int((i+1)/5)
 
 
 def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlength = None):
@@ -75,10 +75,11 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
 
 def batch_generator(datafile, batchsize, length):
     totalsize = findsize(datafile)
+    print(totalsize)
     indexlist = np.random.permutation(totalsize)
         
     while True:
-        for i in range(0, totalsize/batchsize, batchsize):
+        for i in range(0, totalsize//batchsize, batchsize):
             indices = indexlist[i:i+batchsize]
             yield makebatch(datafile, batchsize, indices, maxlength = length)
 

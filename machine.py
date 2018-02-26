@@ -40,7 +40,7 @@ batch_generator = batch_generator('data/crw5s.txt', batchsize, length)
 for i in range(200):
     print(i)
     t = time.time()
-    batch_x, batch_y = batch_generator.next()
+    batch_x, batch_y = next(batch_generator)
     model.train_on_batch(batch_x, batch_y)
     batch_yhat = model.predict_on_batch(batch_x)
     
