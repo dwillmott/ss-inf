@@ -1,12 +1,10 @@
 import keras
 import numpy as np
-import keras.backend as k
 import time
 
-from keras.datasets import mnist
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, RepeatVector, Lambda, Reshape, Permute, Conv2D, Activation, Bidirectional, Reshape
-from keras.optimizers import RMSprop, Adam
+from keras.layers import Dense, LSTM, Lambda, Conv1D, Conv2D, Activation, Bidirectional
+from keras.optimizers import RMSprop
 from keras.regularizers import l2
 
 from custom_layers import *
@@ -15,7 +13,7 @@ from makebatches import *
 #from PIL import Image
 
 
-np.set_printoptions(linewidth = 300, precision = 4, suppress = True)
+np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 length = 135
 h1size = 30
 
@@ -28,7 +26,7 @@ model.add(Activation('softmax'))
 
 opt = RMSprop(lr=0.0001)
 model.compile(optimizer=opt,
-              loss = 'categorical_crossentropy',
+              loss = weighted_cross_entropy,
               metrics=['accuracy'],
               sample_weight_mode = "temporal")
 
@@ -38,16 +36,7 @@ batchsize = 5
 
 batch_generator = batch_generator('data/crw5s.txt', batchsize, length)
 
-
-#print(batch_x.shape, batch_y.shape)
-
-#sample_weight = (batch_y*10)[:,:,:,0].reshape((batchsize, length**2))
-#print(sample_weight[3,40:50, 25:35])
-#sample_weight = sample_weight + np.ones(sample_weight.shape)*0.001
-
-#sample_weight = np.ones((batchsize,135**2))
-
-
+# training loop
 for i in range(200):
     print(i)
     t = time.time()
@@ -66,17 +55,5 @@ for i in range(200):
             
             #accura = thres[0,:,:,0] - batch_y[0,:,:,0]
             #print('incorrect predictions: %d' % (np.sum(np.abs(accura)),))
-    
-    #thres = np.zeros(pred.shape)
-    
-    #thres[pred > 0.5] = 1
-    ##print(thres[0, 40:55, 25:35, 0])
-    #accura = thres[0,:,:,0] - target[0,:,:,0]
-    #print('incorrect predictions: ', np.sum(np.abs(accura)))
-    #print()
-    #im = Image.fromarray((pred[0,:,:,0]*255).astype()
-    #im.save('outputpicture.png')
-    #activations = get_activations(model, inputdata)
-    #print(activations[0])
     
 

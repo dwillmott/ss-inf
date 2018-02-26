@@ -8,31 +8,35 @@ for letter in 'BDEFHIJKLMNOPQRSTVWXYZ':
 
 def getsequenceandstructure(filename, headersize):
     data = np.loadtxt(filename, skiprows = headersize, dtype='str')
-    #print(data.shape)
+    
     sequence = data[:,1]
     sequence = [sequencedict[s.upper()] for s in sequence]
     structure = data[:,4]
     state = structure.astype(bool).astype(int).astype(str)
     
-    #print(' '.join(sequence))
-    #print(' '.join(structure))
-    #print(' '.join(state))
-    
     return sequence, structure, state
 
-#paths = glob2.glob('data/crw5s/*.ct')
+def writedatafile(globstring, outfile, headersize):
+    paths = glob2.glob(globstring)
+    
+    f = open(outfile, 'w')
+    
+    for path in paths:
+        sequence, structure, state = getsequenceandstructure(path, headersize)
+        f.write(path + '\n')
+        f.write(' '.join(sequence) + ' \n')
+        f.write(' '.join(structure) + ' \n')
+        f.write(' '.join(state) + ' \n')
+        f.write('\n')
 
-globstring = 'data/raw/zs/*.ct'
-outfile = 'data/zs.txt'
+    f.close()
+    return
 
-paths = glob2.glob(globstring)
-f = open(outfile, 'w')
-
-headersize = 5 # MAKE SURE THIS IS CORRECT!
-
-for path in paths:
-    sequence, structure, state = getsequenceandstructure(path, headersize)
-    f.write(' '.join(sequence) + ' \n')
-    f.write(' '.join(structure) + ' \n')
-    f.write(' '.join(state) + ' \n')
-    f.write('\n')
+if __name == '__main__':
+    
+    globstring = 'data/raw/crw5s-comparative/*/*.nopct'
+    outfile = 'data/crw5s-comparative.txt'
+    headersize = 5
+    
+    writedatafile(globstring, outfile, headersize)
+    

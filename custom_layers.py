@@ -12,21 +12,17 @@ def SelfCartesian(x):
     x_concat = k.concatenate([x_tiled, x_transposed], axis=-1)
     return x_concat
 
+
 def SelfCartesianShape(input_shape):
     shape = list(input_shape)
     return [shape[0], shape[1], shape[1], shape[2]*2]
 
-def TransposeandConcat(x):
-    xtransposed = k.permute_dimensions(x, (0,2,1,3))
-    xconcat = k.concatenate([x, xtransposed], axis = -1)
-    return xconcat
 
-def TransposeandConcatShape(input_shape):
-    shape = list(input_shape)
-    shape[-1] = 2*shape[-1]
-    return tuple(shape)
-    
-
-#def weighted_loss(y_true, y_pred):
-    #y_true = k.
-    #return
+def weighted_cross_entropy(onehot_labels, logits):
+    weight = 100
+    class_weights = k.argmax(onehot_labels, axis = -1)
+    class_weights = class_weights*weight + (1 - class_weights)
+    unweighted_losses = k.categorical_crossentropy(onehot_labels, logits)
+    weighted_losses = unweighted_losses * class_weights
+    loss = k.mean(weighted_losses)
+    return loss

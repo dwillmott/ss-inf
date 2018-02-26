@@ -1,41 +1,21 @@
 import numpy as np
 import keras
 from keras.utils import to_categorical
-from collections import defaultdict
-
-#def getsample(f, number):
-    ##f = open(datafile, 'r')
-    
-    #number = number*4
-    
-    #for i, line in enumerate(f):
-        #if number == i:
-            #sequence = line
-        #if number == i - 1:
-            #structure = line
-        #if number == i - 2:
-            #state = line
-    
-    #return sequence, structure, state
 
 
 def getsamples(f, numbers):
     
-    numbers = [n*4 for n in numbers]
-    
+    numbers = [n*5 for n in numbers]
     data = []
     
     for i, line in enumerate(f):
-        
-        if i in numbers:
+        if i-1 in numbers:
             sequence = line.rstrip().split(' ')
             sample = [sequence]
-            
-        if i-1 in numbers:
+        if i-2 in numbers:
             structure = line.rstrip().split(' ')
             sample.append(structure)
-            
-        if i-2 in numbers:
+        if i-3 in numbers:
             state = line.rstrip().split(' ')
             sample.append(state)
             data.append(sample)
@@ -46,13 +26,11 @@ def getsamples(f, numbers):
 def findsize(datafile):
     
     f = open(datafile, 'r')
-    
     for i, line in enumerate(f):
         pass
-    
     f.close()
     
-    return (i+1)/4
+    return (i+1)/5
 
 
 def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlength = None):
@@ -72,12 +50,10 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
         maxlength = max(lengths)
     
     # make x
-    
     sequences = [sample[0] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
     sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])
     
     #make y
-    
     z = []
     for sample in data:
         structure = sample[1]
@@ -105,19 +81,4 @@ def batch_generator(datafile, batchsize, length):
         for i in range(0, totalsize/batchsize, batchsize):
             indices = indexlist[i:i+batchsize]
             yield makebatch(datafile, batchsize, indices, maxlength = length)
-
-
-
-if __name__ == '__main__':
-
-    datafile = 'data/crw5s.txt'
-    batchsize = 20
-    totalsize = 588/4
-
-
-
-
-    batch = makebatch(datafile, batchsize, 588/4)
-
-    dataindices = np.random.permutation(totalsize)
 
