@@ -14,13 +14,13 @@ from makebatches import *
 
 
 np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
-length = 135
-h1size = 30
+length = 800
+h1size = 10
 
 model = Sequential()
 model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 6)))
 model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
-model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
+#model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
 model.add(Conv2D(filters=2, kernel_size=5, activation='relu', padding='same'))
 model.add(Activation('softmax'))
 
@@ -32,15 +32,16 @@ model.compile(optimizer=opt,
 
 print(model.summary())
 
-batchsize = 5
+batchsize = 10
 
-batch_generator = batch_generator('data/crw5s.txt', batchsize, length)
+batch_generator = batch_generator('data/crw16s-filtered.txt', batchsize, length)
 
 # training loop
 for i in range(200):
     print(i)
     t = time.time()
     batch_x, batch_y = next(batch_generator)
+    print(time.time() - t)
     model.train_on_batch(batch_x, batch_y)
     batch_yhat = model.predict_on_batch(batch_x)
     

@@ -50,16 +50,16 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
         maxlength = max(lengths)
     
     # make x
-    sequences = [sample[0] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
+    sequences = [sample[0][:maxlength] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
     sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])
     
     #make y
     z = []
     for sample in data:
-        structure = sample[1]
+        structure = sample[1][:maxlength]
         structurearray = np.zeros([len(structure), len(structure)])
         for i, j in enumerate(structure):
-            if int(j):
+            if int(j) and int(j) <= maxlength:
                 structurearray[i-1, int(j)-1] = 1
         
         structurearray = np.stack([1 - structurearray, structurearray], axis = -1)
