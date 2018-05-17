@@ -1,5 +1,6 @@
 import numpy as np
-import glob2
+import glob
+
 
 sequencedict = {'A' : '0', 'C' : '1', 'G' : '2', 'U' : '3'}
 for letter in 'BDEFHIJKLMNOPQRSTVWXYZ':
@@ -16,9 +17,8 @@ def getsequenceandstructure(filename, headersize):
     
     return sequence, structure, state
 
-def writedatafile(globstring, outfile, headersize):
-    paths = glob2.glob(globstring)
-    
+
+def writedatafile(paths, outfile, headersize):
     f = open(outfile, 'w')
     
     for path in paths:
@@ -32,11 +32,18 @@ def writedatafile(globstring, outfile, headersize):
     f.close()
     return
 
-if __name == '__main__':
+if __name__ == '__main__':
     
-    globstring = 'data/raw/crw5s-comparative/*/*.nopct'
-    outfile = 'data/crw5s-comparative.txt'
-    headersize = 5
+    # CHANGE THESE IF YOU'RE USING YOUR OWN DATA
+    datadirectory = 'data/raw/crw5s-comparative'  # directory with .ct files
+    outfile = 'data/crw5s-comparative.txt'  # output file to write to
+    headersize = 5  # number of lines in the .ct file before the sequence begins
     
-    writedatafile(globstring, outfile, headersize)
+    
+    # get all filepaths
+    ctglobstring = datadirectory + '/**/*.ct'
+    nopctglobstring = datadirectory + '/**/*.nopct'
+    paths = glob.glob(ctglobstring, recursive = True) + glob.glob(nopctglobstring, recursive = True)
+    
+    writedatafile(paths, outfile, headersize)
     

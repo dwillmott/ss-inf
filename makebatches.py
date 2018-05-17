@@ -3,10 +3,30 @@ import keras
 from keras.utils import to_categorical
 
 
+
+def getallsamples(path):
+    f = open(path, 'r')
+    
+    sequences = []
+    states = []
+    
+    for i, line in enumerate(f):
+        
+        if i % 5 == 1:
+            sequences.append(line.rstrip().split(' '))
+        if i % 5 == 3:
+            states.append(line.rstrip().split(' '))
+    
+    return sequences, states
+
+
 def getsamples(f, numbers):
     
-    numbers = [n*5 for n in numbers]
-    data = []
+    # f: filename
+    # number: indices of samples
+    
+    numbers = [n*5 for n in numbers] # samples take up five lines each
+    data = [] 
     
     for i, line in enumerate(f):
         if i-1 in numbers:
@@ -20,7 +40,7 @@ def getsamples(f, numbers):
             sample.append(state)
             data.append(sample)
     
-    return data
+    return data # returns list of samples, sample is [sequence, structure, state]
     
 
 def findsize(datafile):
@@ -51,7 +71,7 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
     
     # make x
     sequences = [sample[0][:maxlength] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
-    sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])
+    sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])[:,:,:5]
     
     #make y
     z = []
@@ -73,7 +93,7 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
     return sequencearray, z
 
 
-def batch_generator(datafile, batchsize, length):
+def batch_generator(datafile, batchsize, length = None):
     totalsize = findsize(datafile)
     print(totalsize)
     indexlist = np.random.permutation(totalsize)

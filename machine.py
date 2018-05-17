@@ -59,7 +59,7 @@ def weighted_cross_entropy(onehot_labels, logits):
 #print(length)
 
 model = Sequential()
-model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 6)))
+model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)))
 model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
 model.add(Conv2D(filters=50, kernel_size=7, activation='relu', padding='same'))
 model.add(Conv2D(filters=2, kernel_size=5, activation='relu', padding='same'))
