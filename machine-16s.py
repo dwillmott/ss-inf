@@ -28,7 +28,7 @@ plt.gray()
 
 def SelfCartesian(x):
     x_expanded = k.expand_dims(x, axis = -2)
-    x_tiled = k.repeat_elements(x_expanded, length//2, axis=-2)
+    x_tiled = k.repeat_elements(x_expanded, length//4, axis=-2)
     x_transposed = k.permute_dimensions(x_tiled, (0,2,1,3))
     x_concat = k.concatenate([x_tiled, x_transposed], axis=-1)
     #print(k.int_shape(x), k.int_shape(x_expanded), k.int_shape(x_tiled), k.int_shape(x_concat))
@@ -40,12 +40,12 @@ def SelfCartesianShape(input_shape):
     return [shape[0], shape[1], shape[1], shape[2]*2]
 
 
-def weighted_cross_entropy(onehot_labels, logits):
+def weighted_cross_entropy(target, predicted):
     
-    class_weights = k.cast(k.argmax(onehot_labels, axis = -1), dtype = k.floatx())
+    class_weights = k.cast(k.argmax(target, axis = -1), dtype = k.floatx())
     class_weights = class_weights*weight + (1 - class_weights)
-    unweighted_losses = k.categorical_crossentropy(onehot_labels, logits)
-    weighted_losses = unweighted_losses * class_weights * k.sum(onehot_labels, axis=-1)
+    unweighted_losses = k.categorical_crossentropy(target=target, output=predicted)
+    weighted_losses = unweighted_losses * class_weights * k.sum(target, axis=-1)
     
     loss = k.mean(weighted_losses)
     return loss

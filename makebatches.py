@@ -95,7 +95,6 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
 
 def batch_generator(datafile, batchsize, length = None):
     totalsize = findsize(datafile)
-    print(totalsize)
     indexlist = np.random.permutation(totalsize)
         
     while True:

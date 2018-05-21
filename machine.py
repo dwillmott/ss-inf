@@ -19,7 +19,7 @@ np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 
 datafile = 'data/crw5s-comparative.txt'
 length = 150
-h1size = 100
+h1size = 50
 weight = k.constant(100.0)
 
 plt.gray()
@@ -44,7 +44,7 @@ def weighted_cross_entropy(onehot_labels, logits):
     
     class_weights = k.cast(k.argmax(onehot_labels, axis = -1), dtype = k.floatx())
     class_weights = class_weights*weight + (1 - class_weights)
-    unweighted_losses = k.categorical_crossentropy(onehot_labels, logits)
+    unweighted_losses = k.categorical_crossentropy(target=onehot_labels, output=logits)
     weighted_losses = unweighted_losses * class_weights * k.sum(onehot_labels, axis=-1)
     
     loss = k.mean(weighted_losses)
@@ -65,7 +65,7 @@ def plotresults(batch_x, batch_y, batch_yhat):
         axes[k,0].imshow(batch_y[k,:seqlength,:seqlength,0], norm = norm, interpolation='nearest')
         axes[k,1].imshow(batch_yhat[k,:seqlength,:seqlength,0], norm = norm, interpolation='nearest')
         axes[k,2].imshow(batch_yhat[k,:seqlength,:seqlength,0]>0.5, norm = norm, interpolation='nearest')
-    fig.savefig("ss.png", dpi=200)
+    fig.savefig("ss-5s.png", dpi=200)
     plt.close(fig)
     
     return
@@ -83,7 +83,7 @@ def plotresults(batch_x, batch_y, batch_yhat):
 model = Sequential()
 model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)))
 model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
-model.add(Conv2D(filters=20, kernel_size=11, activation='relu', padding='same'))
+model.add(Conv2D(filters=20, kernel_size=7, activation='relu', padding='same'))
 model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
 model.add(Conv2D(filters=2, kernel_size=5, padding='same'))
 model.add(Activation('softmax'))
