@@ -23,11 +23,12 @@ def writedatafile(paths, outfile, headersize):
     
     for path in paths:
         sequence, structure, state = getsequenceandstructure(path, headersize)
-        f.write(path + '\n')
-        f.write(' '.join(sequence) + ' \n')
-        f.write(' '.join(structure) + ' \n')
-        f.write(' '.join(state) + ' \n')
-        f.write('\n')
+        if sum([int(st) for st in state]):
+            f.write(path + '\n')
+            f.write(' '.join(sequence) + ' \n')
+            f.write(' '.join(structure) + ' \n')
+            f.write(' '.join(state) + ' \n')
+            f.write('\n')
 
     f.close()
     return
@@ -35,7 +36,7 @@ def writedatafile(paths, outfile, headersize):
 if __name__ == '__main__':
     
     # CHANGE THESE IF YOU'RE USING YOUR OWN DATA
-    datadirectory = 'data/raw/crw5s-comparative'  # directory with .ct files
+    datadirectory = 'data/raw'  # directory with .ct files
     outfile = 'data/crw5s-comparative.txt'  # output file to write to
     headersize = 5  # number of lines in the .ct file before the sequence begins
     
