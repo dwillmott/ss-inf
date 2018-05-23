@@ -82,7 +82,7 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
             if int(j) and int(j) <= maxlength:
                 structurearray[i-1, int(j)-1] = 1
         
-        structurearray = np.stack([1 - structurearray, structurearray], axis = -1)
+        structurearray = np.stack([np.triu(1 - structurearray), np.triu(structurearray)], axis = -1)
         structurearray = np.pad(structurearray, [(0, maxlength - len(structure)), (0, maxlength - len(structure)), (0, 0)], 'constant')
         z.append(structurearray)
     

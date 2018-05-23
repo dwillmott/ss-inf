@@ -12,6 +12,7 @@ from keras.regularizers import l2
 
 #from custom_layers import *
 from makebatches import *
+from custom import *
 
 #from PIL import Image
 
@@ -63,8 +64,8 @@ def plotresults(batch_x, batch_y, batch_yhat):
     for k, seqlength in enumerate(seqlengths[:4]):
         
         axes[k,0].imshow(batch_y[k,:seqlength,:seqlength,0], norm = norm, interpolation='nearest')
-        axes[k,1].imshow(batch_yhat[k,:seqlength,:seqlength,0], norm = norm, interpolation='nearest')
-        axes[k,2].imshow(batch_yhat[k,:seqlength,:seqlength,0]>0.5, norm = norm, interpolation='nearest')
+        axes[k,1].imshow(np.triu(batch_yhat[k,:seqlength,:seqlength,0]), norm = norm, interpolation='nearest')
+        axes[k,2].imshow(np.triu(batch_yhat[k,:seqlength,:seqlength,0]>0.5), norm = norm, interpolation='nearest')
     fig.savefig("ss-5s.png", dpi=200)
     plt.close(fig)
     
@@ -111,6 +112,7 @@ for i in range(5000):
     batch_yhat = model.predict_on_batch(batch_x)
     
     plotresults(batch_x, batch_y, batch_yhat)
+    getaccuracy(batch_x, batch_y, batch_yhat)
     
     difference = batch_yhat - batch_y
     true = batch_y*(batch_yhat > 0.5)
