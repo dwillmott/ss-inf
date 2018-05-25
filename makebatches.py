@@ -90,15 +90,16 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
     
     f.close()
     
-    return sequencearray, z
+    return sequencearray, z, lengths
 
 
 def batch_generator(datafile, batchsize, length = None):
     totalsize = findsize(datafile)
+    totalsize = (totalsize//batchsize)*batchsize
     indexlist = np.random.permutation(totalsize)
         
     while True:
-        for i in range(0, totalsize//batchsize, batchsize):
+        for i in range(0, totalsize, batchsize):
             indices = indexlist[i:i+batchsize]
             yield makebatch(datafile, batchsize, indices, maxlength = length)
 

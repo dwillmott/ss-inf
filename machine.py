@@ -1,6 +1,7 @@
 import keras
 import numpy as np
 import time
+import sys
 from matplotlib import colors
 import matplotlib.pyplot as plt
 import keras.backend as k
@@ -19,9 +20,10 @@ from custom import *
 np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 
 datafile = 'data/crw5s-comparative.txt'
-length = 150
+length = 250
 h1size = 50
-weight = k.constant(100.0)
+batchsize = 16
+weight = k.constant(float(sys.argv[1]))
 
 plt.gray()
 
@@ -52,39 +54,10 @@ def weighted_cross_entropy(onehot_labels, logits):
     return loss
 
 
-# ------------------------
-
-
-def plotresults(batch_x, batch_y, batch_yhat):
-    
-    seqlengths = np.argmin(np.sum(batch_x, axis=2), axis=1)
-    norm = colors.Normalize(vmin=0., vmax=1.)
-    
-    fig, axes = plt.subplots(4,3)
-    for k, seqlength in enumerate(seqlengths[:4]):
-        
-        axes[k,0].imshow(batch_y[k,:seqlength,:seqlength,0], norm = norm, interpolation='nearest')
-        axes[k,1].imshow(np.triu(batch_yhat[k,:seqlength,:seqlength,0]), norm = norm, interpolation='nearest')
-        axes[k,2].imshow(np.triu(batch_yhat[k,:seqlength,:seqlength,0]>0.5), norm = norm, interpolation='nearest')
-    fig.savefig("ss-5s.png", dpi=200)
-    plt.close(fig)
-    
-    return
-
-# ------------------------
-
-
-
-
-#if length == None:
-    #length = findsize(datafile)
-
-#print(length)
-
 model = Sequential()
 model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)))
 model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
-model.add(Conv2D(filters=20, kernel_size=7, activation='relu', padding='same'))
+model.add(Conv2D(filters=30, kernel_size=11, activation='relu', padding='same'))
 model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
 model.add(Conv2D(filters=2, kernel_size=5, padding='same'))
 model.add(Activation('softmax'))
@@ -97,33 +70,34 @@ model.compile(optimizer=opt,
 
 print(model.summary())
 
-batchsize = 16
-
-
 
 batch_generator = batch_generator('data/crw5s-comparative.txt', batchsize, length)
 testbatch = makebatch(datafile, batchsize)
 
 # training loop
-for i in range(5000):
+for i in range(10000):
     t = time.time()
-    batch_x, batch_y = next(batch_generator)
+    batch_x, batch_y, batch_lengths = next(batch_generator)
+    #length = batch_x.shape[1]
     loss = model.train_on_batch(batch_x, batch_y)
     batch_yhat = model.predict_on_batch(batch_x)
     
-    plotresults(batch_x, batch_y, batch_yhat)
-    getaccuracy(batch_x, batch_y, batch_yhat)
-    
-    difference = batch_yhat - batch_y
-    true = batch_y*(batch_yhat > 0.5)
-    false = batch_y*(batch_yhat < 0.5)
-    tn = np.sum(true[:,:,:,0], axis = (1,2))
-    tp = np.sum(true[:,:,:,1], axis = (1,2))
-    fn = np.sum(false[:,:,:,1], axis = (1,2))
-    fp = np.sum(false[:,:,:,0], axis = (1,2))
-    accuracyarray = np.stack([tn, tp, fn, fp])
-    
-    
-    print('{:4d}, {:5.5f}, {:5.3f}'.format(i, loss[0], time.time()-t), 'tp: {:2.0f}/{:2.0f} ({:5.1f}%)  fp: {:5.0f}/{:5.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])))
+    if i % 20 == 0:
+        plotresults(batch_x, batch_y, batch_yhat, i)
+        
+        difference = batch_yhat - batch_y
+        true = batch_y*(batch_yhat > 0.5)
+        false = batch_y*(batch_yhat < 0.5)
+        tn = np.sum(true[:,:,:,0], axis = (1,2))
+        tp = np.sum(true[:,:,:,1], axis = (1,2))
+        fn = np.sum(false[:,:,:,1], axis = (1,2))
+        fp = np.sum(false[:,:,:,0], axis = (1,2))
+        accuracyarray = np.stack([tn, tp, fn, fp])
+        
+        metrics = getaccuracy(batch_x, batch_y, batch_yhat)
+        
+        print('{:4d}, {:5.5f}, {:5.3f}'.format(i, loss[0], time.time()-t), 'tp: {:2.0f}/{:2.0f} ({:5.1f}%)  fp: {:5.0f}/{:5.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])))
+        #print(metrics)
+        print('     PPV: %0.3f  sen: %0.3f  acc: %0.3f      PPV: %0.3f  sen: %0.3f  acc: %0.3f' % (metrics))
     
 
