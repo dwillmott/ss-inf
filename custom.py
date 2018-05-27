@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 def plotresults(batch_x, batch_y, batch_yhat, i):
     
     seqlengths = np.argmin(np.sum(batch_x, axis=2), axis=1)
+    seqlengths = [seqlength if seqlength > 1 else batch_x.shape[1] for seqlength in seqlengths]
     norm = colors.Normalize(vmin=0., vmax=1.)
     
     fig, axes = plt.subplots(4,3)

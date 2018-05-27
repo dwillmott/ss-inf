@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import keras.backend as k
 
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Lambda, Conv1D, Conv2D, Activation, Bidirectional
+from keras.layers import Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional
 from keras.optimizers import RMSprop, Adam
 from keras.regularizers import l2
 
@@ -21,9 +21,13 @@ np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 
 datafile = 'data/crw5s-comparative.txt'
 length = 250
-h1size = 50
+h1size = 100
 batchsize = 16
-weight = k.constant(float(sys.argv[1]))
+try:
+    weight = k.constant(float(sys.argv[1]))
+except:
+    weight = 50
+convfactor = 2
 
 plt.gray()
 
@@ -31,7 +35,7 @@ plt.gray()
 
 def SelfCartesian(x):
     x_expanded = k.expand_dims(x, axis = -2)
-    x_tiled = k.repeat_elements(x_expanded, length, axis=-2)
+    x_tiled = k.repeat_elements(x_expanded, length//convfactor, axis=-2)
     x_transposed = k.permute_dimensions(x_tiled, (0,2,1,3))
     x_concat = k.concatenate([x_tiled, x_transposed], axis=-1)
     #print(k.int_shape(x), k.int_shape(x_expanded), k.int_shape(x_tiled), k.int_shape(x_concat))
@@ -54,13 +58,22 @@ def weighted_cross_entropy(onehot_labels, logits):
     return loss
 
 
-model = Sequential()
-model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)))
-model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
-model.add(Conv2D(filters=30, kernel_size=11, activation='relu', padding='same'))
-model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
-model.add(Conv2D(filters=2, kernel_size=5, padding='same'))
-model.add(Activation('softmax'))
+layers = [Conv1D(filters=10, kernel_size=11, strides=convfactor, activation='relu', padding='same', input_shape = (length, 5)),
+          Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)),
+          Lambda(SelfCartesian, output_shape = SelfCartesianShape),
+          Conv2D(filters=30, kernel_size=11, activation='relu', padding='same'),
+          Conv2DTranspose(filters=20, kernel_size=8, strides=convfactor, activation='relu', padding='same'),
+          Conv2D(filters=2, kernel_size=5, padding='same'),
+          Activation('softmax')]
+
+model = Sequential(layers)
+#model.add(Conv1D(filters=10, kernel_size=9, strides=convfactor, activation='relu', padding='same', input_shape = (length, 5)))
+#model.add(Bidirectional(LSTM(h1size, return_sequences = True), input_shape = (length, 5)))
+#model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
+#model.add(Conv2D(filters=30, kernel_size=11, activation='relu', padding='same'))
+#model.add(Conv2DTranspose(filters=20, kernel_size=5, strides=convfactor, activation='relu', padding='same'))
+#model.add(Conv2D(filters=2, kernel_size=5, padding='same'))
+#model.add(Activation('softmax'))
 
 opt = Adam(lr=0.0001)
 model.compile(optimizer=opt,
@@ -96,8 +109,9 @@ for i in range(10000):
         
         metrics = getaccuracy(batch_x, batch_y, batch_yhat)
         
-        print('{:4d}, {:5.5f}, {:5.3f}, {:5.3f}'.format(i, loss[0], t2-t, time.time()-t), 'tp: {:3.0f}/{:3.0f} ({:5.1f}%)  fp: {:5.0f}/{:5.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])), end='')
-    
-        print(' PPV: %0.3f  sen: %0.3f  acc: %0.3f' % (metrics[:3]))
+        print('{:4d}, {:5.5f}, {:5.3f}'.format(i, loss[0], time.time()-t), 'tp: {:2.0f}/{:2.0f} ({:5.1f}%)  fp: {:5.0f}/{:5.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])))
+        #print(metrics)
+        #print('     PPV: %0.3f  sen: %0.3f  acc: %0.3f      PPV: %0.3f  sen: %0.3f  acc: %0.3f' % (metrics))
+        print('                                                                    PPV: %0.3f  sen: %0.3f  acc: %0.3f' % (metrics[:3]))
     
 
