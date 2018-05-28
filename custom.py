@@ -42,6 +42,7 @@ def getpairs_cols(structure):
 def getaccuracy(batch_x, batch_y, batch_yhat):
     
     seqlengths = np.argmin(np.sum(batch_x, axis=2), axis=1)
+    seqlengths = [seqlength if seqlength > 1 else batch_x.shape[1] for seqlength in seqlengths]
     for i in range(batch_y.shape[0]):
         if seqlengths[i] == 0:
             print(batch_x[i])
