@@ -20,8 +20,8 @@ np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 
 datafile = 'data/crw16s-filtered.txt'
 length = 1828
-h1size = 60
-weight = k.constant(200.0)
+h1size = 80
+weight = k.constant(400.0)
 
 plt.gray()
 
@@ -151,10 +151,10 @@ def plotlosses(losses):
 #print(length)
 
 model = Sequential()
-model.add(Conv1D(filters=10, kernel_size=9, strides=4, activation='relu', padding='same', input_shape = (length, 5)))
+model.add(Conv1D(filters=20, kernel_size=9, strides=4, activation='relu', padding='same', input_shape = (length, 5)))
 model.add(Bidirectional(LSTM(h1size, return_sequences = True)))
 model.add(Lambda(SelfCartesian, output_shape = SelfCartesianShape))
-model.add(Conv2D(filters=20, kernel_size=5, activation='relu', padding='same'))
+model.add(Conv2D(filters=30, kernel_size=5, activation='relu', padding='same'))
 model.add(Conv2DTranspose(filters=20, kernel_size=4, strides=2, activation='relu', padding='same'))
 model.add(Conv2DTranspose(filters=2, kernel_size=4, strides=2, activation='relu', padding='same'))
 #model.add(Conv2D(filters=2, kernel_size=5, padding='same'))
@@ -168,7 +168,7 @@ model.compile(optimizer=opt,
 
 print(model.summary())
 
-batchsize = 16
+batchsize = 10
 
 
 
@@ -177,7 +177,7 @@ testbatch = makebatch(datafile, batchsize)
 
 losses = []
 # training loop
-for i in range(5000):
+for i in range(20000):
     t = time.time()
     batch_x, batch_y, lengths = next(batch_generator)
     t2 = time.time()
@@ -201,7 +201,7 @@ for i in range(5000):
     metrics = getaccuracy(batch_x, batch_y, batch_yhat)
     
     
-    print('{:4d}, {:5.5f}, {:5.3f}, {:5.3f}'.format(i, loss[0], t2-t, time.time()-t), 'tp: {:3.0f}/{:3.0f} ({:5.1f}%)  fp: {:5.0f}/{:5.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])), end='')
+    print('{:4d}, {:5.5f}, {:5.3f}, {:6.3f}'.format(i, loss[0], t2-t, time.time()-t), 'tp: {:3.0f}/{:3.0f} ({:5.1f}%)  fp: {:7.0f}/{:7.0f} ({:5.1f}%)'.format(accuracyarray[1,0], accuracyarray[1,0]+accuracyarray[2,0], 100.0*accuracyarray[1,0] / (accuracyarray[1,0]+accuracyarray[2,0]), accuracyarray[3,0], accuracyarray[0,0]+accuracyarray[3,0], 100.0*accuracyarray[3,0] / (accuracyarray[0,0]+accuracyarray[3,0])), end='')
     
     print(' PPV: %0.3f  sen: %0.3f  acc: %0.3f' % (metrics[:3]))
     
