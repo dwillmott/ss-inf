@@ -72,3 +72,34 @@ def getmetrics(native, predicted, name = None):
     accuracy = 0.5*(PPV + sen)
     
     return PPV, sen, accuracy
+
+
+def checkpair(i, j):
+    possiblepairs = [set([0, 3]),
+                     set([1, 2]),
+                     set([2, 3])]
+                     
+    return set([i,j]) in possiblepairs
+
+
+def possiblepairs(batch_x):
+    seqlengths = np.argmin(np.sum(batch_x, axis=2), axis=1)
+    seqlengths = [seqlength if seqlength > 1 else batch_x.shape[1] for seqlength in seqlengths]
+    
+    z = []
+    
+    for i, x in enumerate(batch_x):
+        x = x[:seqlengths[i]]
+        
+        xargs = np.argmax(x, axis = 1)
+        
+        structurearray = np.zeros([batch_x.shape[1], batch_x.shape[1]])
+        
+        for ind_i, ntide_i in enumerate(xargs):
+            for ind_j, ntide_j in enumerate(xargs):
+                if checkpair(ntide_i, ntide_j):
+                    structurearray[ind_i,ind_j] = 1
+        
+        z.append(np.triu(structurearray))
+    
+    return np.stack(z)
