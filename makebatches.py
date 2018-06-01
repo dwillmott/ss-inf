@@ -92,6 +92,51 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
     
     return sequencearray, z, lengths
 
+def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize = None):
+    # returns the tuple (batch_x, batch_y)
+    
+    if batchindices is None:
+        if totalsize == None:
+            totalsize = findsize(datafile)
+        batchindices = np.random.choice(totalsize, batchsize, replace=False)
+    
+    f = open(datafile, 'r')
+    
+    data = getsamples(f, batchindices)
+    
+    sequencearray = []
+    z = []
+    for sequence, structure, state in data:
+        length = len(sequence)
+        start = np.random.randint(0, length - sublength)
+        subsequence = keras.utils.to_categorical(sequence[start:start+sublength], num_classes=5)
+        print(subsequence.shape)
+        sequencearray.append(subsequence)
+        
+        substructure = structure[start:start+sublength]
+        substructurearray = np.zeros([sublength, sublength])
+        
+        for i, j in enumerate(structure):
+            if (i > start) and (i < (start+sublength)):
+                if int(j) and int(j) > i and int(j) <= (start+sublength):
+                    substructurearray[i-start-1, int(j)-start-1] = 1
+        z.append(substructurearray)
+    
+    sequencearray = np.stack(sequencearray)
+    z = np.stack(z)
+    f.close()
+    
+    return sequencearray, z
+
+def batch_sub_generator(datafile, batchsize, length):
+    totalsize = findsize(datafile)
+    totalsize = (totalsize//batchsize)*batchsize
+    indexlist = np.random.permutation(totalsize)
+        
+    while True:
+        for i in range(0, totalsize, batchsize):
+            indices = indexlist[i:i+batchsize]
+            yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
 
 def batch_generator(datafile, batchsize, length = None):
     totalsize = findsize(datafile)
