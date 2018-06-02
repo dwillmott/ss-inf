@@ -24,14 +24,13 @@ datafile = 'data/crw16s-filtered-long.txt'
 length = 300
 batchsize = 10
 weight = k.constant(200.0)
-triumask = k.constant(np.triu(np.ones([length, length])))
+#triumask = k.constant(np.triu(np.ones([length, length])))
 
 plt.gray()
 
 # ------------------------
 
 def SelfCartesian(x):
-    sh = k.shape(x)
     newshape = k.stack([1, 1, k.shape(x)[1], 1])
     
     x_expanded = k.expand_dims(x, axis = -2)
@@ -48,6 +47,7 @@ def SelfCartesianShape(input_shape):
 
 def weighted_binary_cross_entropy(labels, logits):
     
+    triumask = k.constant(np.triu(np.ones([k.int_shape(logits)[1], k.int_shape(logits)[1]])))
     class_weights = labels*weight + (1 - labels)
     unweighted_losses = k.binary_crossentropy(target=labels, output=logits)
     weighted_losses = unweighted_losses * class_weights * triumask
@@ -56,38 +56,29 @@ def weighted_binary_cross_entropy(labels, logits):
     return loss
 
 
-def plotresults(batch_y, batch_yhat, i):
-    
+def plotresults(square, name):
     norm = colors.Normalize(vmin=0., vmax=1.)
     
     fig = plt.figure()
-    plt.imshow(np.triu(1 - batch_y[0]), norm = norm, interpolation='nearest')
-    fig.savefig("ss-16s-truth.png", dpi=400)
+    plt.imshow(np.triu(1 - square), norm = norm, interpolation='nearest')
+    fig.savefig(name, dpi=400)
     plt.close(fig)
-    
-    fig = plt.figure()
-    plt.imshow(np.triu(1 - batch_yhat[0]), norm = norm, interpolation='nearest')
-    fig.savefig("ss-16s-pred.png", dpi=400)
-    plt.close(fig)
-    
     return
 
 
 def plotlosses(losses, testlosses=None):
-    
     fig = plt.figure()
     plt.plot(losses)
     if testlosses:
         plt.plot(testlosses)
     fig.savefig("ss-sub-losses.png")
     plt.close(fig)
-    
     return
 
 def printoutputs(batch_y, batch_preds, i, loss, t, t2):
     
-    confs = np.stack([confusion_matrix(y[np.triu_indices(300)].flatten(),
-                                       pred[np.triu_indices(300)].flatten(),
+    confs = np.stack([confusion_matrix(y[y.shape[1]].flatten(),
+                                       pred[pred.shape[1]].flatten(),
                                        labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
     
     tn, fp, fn, tp = np.sum(confs, axis=0)
@@ -150,7 +141,8 @@ for i in range(100):
         test_preds = np.rint(valid_yhat)
         
         plotlosses(losses, testlosses)
-        plotresults(valid_y, valid_yhat, i)
+        plotresults(valid_y[0], 'ss-sub-truth.png')
+        plotresults(valid_yhat[0], 'ss-sub-pred.png')
         printoutputs(valid_y, test_preds, i, testloss, t, t2)
     
 model.save('sub.hdf5')
