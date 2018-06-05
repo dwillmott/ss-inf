@@ -5,7 +5,7 @@ import sys
 from sklearn.metrics import confusion_matrix
 from matplotlib import colors
 import matplotlib.pyplot as plt
-import keras.backend as k
+import keras.backend as K
 
 from keras.models import Model
 from keras.layers import Input, Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional, concatenate
@@ -15,6 +15,7 @@ from keras.regularizers import l2
 #from custom_layers import *
 from makebatches import *
 from custom import *
+import tensorflow as tf
 
 #from PIL import Image
 
@@ -23,69 +24,67 @@ np.set_printoptions(linewidth = 300, precision = 5, suppress = True)
 datafile = 'data/crw16s-filtered-long.txt'
 length = 300
 batchsize = 10
-weight = k.constant(200.0)
-#triumask = k.constant(np.triu(np.ones([length, length])))
+weight = K.constant(200.0)
 
 plt.gray()
 
 # ------------------------
 
-def SelfCartesian(x):
-    newshape = k.stack([1, 1, k.shape(x)[1], 1])
+#def SelfCartesian(x):
+    #newshape = K.stack([1, 1, K.shape(x)[1], 1])
     
-    x_expanded = k.expand_dims(x, axis = -2)
-    x_tiled = k.tile(x_expanded, newshape)
-    x_transposed = k.permute_dimensions(x_tiled, (0,2,1,3))
-    x_concat = k.concatenate([x_tiled, x_transposed], axis=-1)
-    return x_concat
+    #x_expanded = K.expand_dims(x, axis = -2)
+    #x_tiled = K.tile(x_expanded, newshape)
+    #x_transposed = K.permute_dimensions(x_tiled, (0,2,1,3))
+    #x_concat = K.concatenate([x_tiled, x_transposed], axis=-1)
+    #return x_concat
 
 
-def SelfCartesianShape(input_shape):
-    shape = list(input_shape)
-    return [shape[0], shape[1], shape[1], shape[2]*2]
+#def SelfCartesianShape(input_shape):
+    #shape = list(input_shape)
+    #return [shape[0], shape[1], shape[1], shape[2]*2]
 
 
-def weighted_binary_cross_entropy(labels, logits):
+#def weighted_binary_cross_entropy(labels, logits):
     
-    triumask = k.constant(np.triu(np.ones([k.int_shape(logits)[1], k.int_shape(logits)[1]])))
-    class_weights = labels*weight + (1 - labels)
-    unweighted_losses = k.binary_crossentropy(target=labels, output=logits)
-    weighted_losses = unweighted_losses * class_weights * triumask
+    #class_weights = labels*weight + (1 - labels)
+    #unweighted_losses = K.binary_crossentropy(target=labels, output=logits)
+    #weighted_losses = unweighted_losses * class_weights
     
-    loss = k.mean(weighted_losses)
-    return loss
+    #loss = K.mean(tf.matrix_band_part(K.squeeze(weighted_losses, -1), 0, -1))
+    #return loss
 
 
-def plotresults(square, name):
-    norm = colors.Normalize(vmin=0., vmax=1.)
+#def plotresults(square, name):
+    #norm = colors.Normalize(vmin=0., vmax=1.)
     
-    fig = plt.figure()
-    plt.imshow(np.triu(1 - square), norm = norm, interpolation='nearest')
-    fig.savefig(name, dpi=400)
-    plt.close(fig)
-    return
+    #fig = plt.figure()
+    #plt.imshow(np.triu(1 - square), norm = norm, interpolation='nearest')
+    #fig.savefig(name, dpi=400)
+    #plt.close(fig)
+    #return
 
 
-def plotlosses(losses, testlosses=None):
-    fig = plt.figure()
-    plt.plot(losses)
-    if testlosses:
-        plt.plot(testlosses)
-    fig.savefig("ss-sub-losses.png")
-    plt.close(fig)
-    return
+#def plotlosses(losses, name, validlosses=None):
+    #fig = plt.figure()
+    #plt.plot(losses)
+    #if validlosses:
+        #plt.plot(validlosses)
+    #fig.savefig("ss-sub-losses.png")
+    #plt.close(fig)
+    #return
 
-def printoutputs(batch_y, batch_preds, i, loss, t, t2):
+#def printoutputs(batch_y, batch_preds, i, loss, t, t2):
     
-    confs = np.stack([confusion_matrix(y[y.shape[1]].flatten(),
-                                       pred[pred.shape[1]].flatten(),
-                                       labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
+    #confs = np.stack([confusion_matrix(y[np.triu_indices(y.shape[1])].flatten(),
+                                       #pred[np.triu_indices(pred.shape[1])].flatten(),
+                                       #labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
     
-    tn, fp, fn, tp = np.sum(confs, axis=0)
-    print('{:4d}, {:5.5f}, {:3.1f}, {:4.1f}, {:4.1f}, {:4.1f}'.format(i, loss, t2-t, t3-t2, t4-t3, time.time()-t4), end='')
-    print('   tn {:8d}, fp {:8d}, fn {:4d}, tp {:4d}'.format(tn, fp, fn, tp))
+    #tn, fp, fn, tp = np.sum(confs, axis=0)
+    #print('{:4d}, {:5.5f}, {:3.1f}, {:4.1f}, {:4.1f}, {:4.1f}'.format(i, loss, t2-t, t3-t2, t4-t3, time.time()-t4), end='')
+    #print('   tn {:8d}, fp {:8d}, fn {:4d}, tp {:4d}'.format(tn, fp, fn, tp))
     
-    return
+    #return
 
 inputs = Input(shape=(None, 5))
 
@@ -121,7 +120,7 @@ valid_x, valid_y = makebatch_sub(datafile, batchsize, length)
 
 
 losses = []
-testlosses = []
+validlosses = []
 # training loop
 for i in range(100):
     t = time.time()
@@ -131,18 +130,19 @@ for i in range(100):
     loss = model.train_on_batch(batch_x, np.expand_dims(batch_y, -1))
     losses.append(loss)
     t3 = time.time()
-    testloss = model.evaluate(valid_x, np.expand_dims(valid_y, -1), verbose = 0)
-    testlosses.append(testloss)
+    validloss = model.evaluate(valid_x, np.expand_dims(valid_y, -1), verbose = 0)
+    validlosses.append(validloss)
     t4 = time.time()
     
     if i % 10 == 0:
     
         valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
-        test_preds = np.rint(valid_yhat)
+        valid_preds = np.rint(valid_yhat)
         
-        plotlosses(losses, testlosses)
+        plotlosses(losses, 'ss-sub-losses.png', validlosses)
         plotresults(valid_y[0], 'ss-sub-truth.png')
-        plotresults(valid_yhat[0], 'ss-sub-pred.png')
-        printoutputs(valid_y, test_preds, i, testloss, t, t2)
+        plotresults(valid_yhat[0], 'ss-sub-prob.png')
+        plotresults(valid_preds[0], 'ss-sub-pred.png')
+        printoutputs(valid_y, valid_preds, i, validloss, t, t2, t3, t4)
     
-model.save('sub.hdf5')
+        model.save('sub.hdf5')
