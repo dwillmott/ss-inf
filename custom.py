@@ -22,16 +22,6 @@ def SelfCartesianShape(input_shape):
     return [shape[0], shape[1], shape[1], shape[2]*2]
 
 
-def weighted_binary_cross_entropy(labels, logits):
-    weight = K.constant(200.0)
-    class_weights = labels*weight + (1 - labels)
-    unweighted_losses = K.binary_crossentropy(target=labels, output=logits)
-    weighted_losses = unweighted_losses * class_weights
-    
-    loss = K.mean(tf.matrix_band_part(K.squeeze(weighted_losses, -1), 0, -1))
-    return loss
-
-
 def plotresults(square, name):
     norm = colors.Normalize(vmin=0., vmax=1.)
     
@@ -53,22 +43,27 @@ def plotlosses(losses, validlosses, testlosses, name):
     plt.close(fig)
     return
 
-def printtestoutputs(y, pred, i, testname, theend):
+def printtestoutputs(y, yhat, pred, i, testname, testfile):
     
     tn, fp, fn, tp = confusion_matrix(y[np.triu_indices(y.shape[1])].flatten(),
                                        pred[np.triu_indices(pred.shape[1])].flatten(),
                                        labels=[0,1]).ravel()
     
-    #tn, fp, fn, tp = np.sum(confs, axis=0)
-    print('{:4d}  {:20s}  '.format(i, testname), end='')
-    print('   tn: {:7d}   fp: {:7d}   fn: {:3d}   tp: {:3d}'.format(tn, fp, fn, tp), end=theend)
+    metrics = getaccuracy(y, yhat)
     
-    return
+    #tn, fp, fn, tp = np.sum(confs, axis=0)
+    testfile.write('{:20s}  '.format(testname))
+    testfile.write('   tn: {:7d}   fp: {:7d}   fn: {:3d}   tp: {:3d}'.format(tn, fp, fn, tp))
+    testfile.write('    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n' % getaccuracy(y, yhat))
+    
+    return metrics
 
 def printoutputs(batch_y, batch_preds, i, loss, theend):
     
-    confs = np.stack([confusion_matrix(y[np.triu_indices(y.shape[1])].flatten(),
-                                       pred[np.triu_indices(pred.shape[1])].flatten(),
+    uppertri = np.triu_indices(batch_y.shape[1])
+    
+    confs = np.stack([confusion_matrix(y[uppertri].flatten(),
+                                       pred[uppertri].flatten(),
                                        labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
     
     tn, fp, fn, tp = np.sum(confs, axis=0)
