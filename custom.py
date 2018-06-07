@@ -32,13 +32,14 @@ def plotresults(square, name):
     return
 
 
-def plotlosses(losses, validlosses, testlosses, name):
+def plotlosses(losses, validlosses, testlosses, name, step = 1):
+    xax = range(0,len(losses)*step, step)
     fig = plt.figure()
-    plt.plot(losses)
+    plt.plot(xax, losses)
     if validlosses:
-        plt.plot(validlosses)
+        plt.plot(xax, validlosses)
     if testlosses:
-        plt.plot(testlosses)
+        plt.plot(xax, testlosses)
     fig.savefig(name)
     plt.close(fig)
     return
