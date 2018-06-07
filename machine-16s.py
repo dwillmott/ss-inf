@@ -24,6 +24,7 @@ parser.add_argument("--iterations", default = 5000, type = int)
 parser.add_argument("--displaysteps", default = 50, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
+parser.add_argument('--useLSTM', dest='useLSTM', default=False, action='store_true')
 parser.add_argument("--length", default = 300, type = int) # 0 = largest permissible
 parser.add_argument("--weight", default = 50, type = int)
 parser.add_argument("--reg", default = 0.0001, type = float)
@@ -41,11 +42,12 @@ length = args.length
 batchsize = args.batchsize
 weightint = args.weight
 BN = args.BN
+useLSTM = args.useLSTM
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
 datafile = 'data/crw16s-filtered-long.txt'
-idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}'.format(lr, reg, 'no'*(not BN), weightint)
+idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
 outputdir = 'outputs/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
 print(idstring)
@@ -77,10 +79,12 @@ if loadmodel:
 
 else:
     inputs = Input(shape=(None, 5))
-
-    h1 = Bidirectional(LSTM(75, return_sequences = True))(inputs)
-
-    h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
+    
+    if useLSTM:
+        h1 = Bidirectional(LSTM(50, return_sequences = True))(inputs)
+        h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
+    else:
+        h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(inputs)
 
     h2square_1 = Conv2D(filters=20, kernel_size=15, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_2 = Conv2D(filters=20, kernel_size=9, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
@@ -120,7 +124,7 @@ losses = []
 validlosses = []
 testlosses = []
 # training loop
-SPE = 50
+SPE = 100
 for i in range(150):
     
     loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, length), steps_per_epoch = SPE)
@@ -131,9 +135,12 @@ for i in range(150):
     valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
     valid_preds = np.rint(valid_yhat)
     plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', step = SPE)
-    printoutputs(valid_y, valid_preds, i, validloss, theend = '\n')
     
-    if i % 10 == 9:
+    validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+    printoutputs(valid_y, valid_preds, i, SPE, validloss, validfile)
+    validfile.close()
+    
+    if i % 5 == 4:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
         for j in range(16):

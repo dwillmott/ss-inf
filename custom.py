@@ -59,7 +59,7 @@ def printtestoutputs(y, yhat, pred, i, testname, testfile):
     
     return metrics
 
-def printoutputs(batch_y, batch_preds, i, loss, theend):
+def printoutputs(batch_y, batch_preds, i, step, loss, validfile):
     
     uppertri = np.triu_indices(batch_y.shape[1])
     
@@ -68,8 +68,9 @@ def printoutputs(batch_y, batch_preds, i, loss, theend):
                                        labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
     
     tn, fp, fn, tp = np.sum(confs, axis=0)
-    print('{:4d}  {:5.5f}  '.format(i, loss), end='')
-    print('   tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(tn, fp, fn, tp), end=theend)
+    printstring = '{:5d}  {:5.5f}     tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(i*step, loss, tn, fp, fn, tp)
+    print(printstring)
+    validfile.write(printstring+'\n')
     
     return
 
@@ -122,23 +123,6 @@ def getaccuracy(y, yhat):
         #print('     PPV: %0.3f     sen: %0.3f     acc: %0.3f      PPV: %0.3f     sen: %0.3f     acc: %0.3f' % (rowmetrics+colmetrics))
     
     return colmetrics# + colmetrics
-
-#def getaccuracy(batch_x, batch_y, batch_yhat):
-    
-    #seqlengths = np.argmin(np.sum(batch_x, axis=2), axis=1)
-    #seqlengths = [seqlength if seqlength > 1 else batch_x.shape[1] for seqlength in seqlengths]
-    #for i in range(batch_y.shape[0]):
-        #if seqlengths[i] == 0:
-            #print(batch_x[i])
-        #truepairs = getpairs_rows(batch_y[i, :seqlengths[i], :seqlengths[i], 1])
-        
-        #predictedpairs_rows = getpairs_rows(np.triu(batch_yhat[i, :seqlengths[i], :seqlengths[i], 1]))
-        #rowmetrics = getmetrics(truepairs, predictedpairs_rows)
-        #predictedpairs_cols = getpairs_rows(np.triu(batch_yhat[i, :seqlengths[i], :seqlengths[i], 1]))
-        #colmetrics = getmetrics(truepairs, predictedpairs_cols)
-        ##print('     PPV: %0.3f     sen: %0.3f     acc: %0.3f      PPV: %0.3f     sen: %0.3f     acc: %0.3f' % (rowmetrics+colmetrics))
-    
-    #return rowmetrics + colmetrics
 
 
 def getmetrics(native, predicted, name = None):
