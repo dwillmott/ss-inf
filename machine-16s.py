@@ -43,6 +43,7 @@ weightint = args.weight
 BN = args.BN
 
 weight = k.constant(weightint)
+l2reg = l2(reg)
 datafile = 'data/crw16s-filtered-long.txt'
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}'.format(lr, reg, 'no'*(not BN), weightint)
 outputdir = 'outputs/'+idstring+'/'
@@ -81,9 +82,9 @@ else:
 
     h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
 
-    h2square_1 = Conv2D(filters=20, kernel_size=15, use_bias=False, padding='same')(h1square)
-    h2square_2 = Conv2D(filters=20, kernel_size=9, use_bias=False, padding='same')(h1square)
-    h2square_3 = Conv2D(filters=20, kernel_size=5, use_bias=False, padding='same')(h1square)
+    h2square_1 = Conv2D(filters=20, kernel_size=15, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
+    h2square_2 = Conv2D(filters=20, kernel_size=9, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
+    h2square_3 = Conv2D(filters=20, kernel_size=5, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_a = concatenate([h2square_1, h2square_2, h2square_3], axis=-1)
     if BN:
         h2square_b = BatchNormalization(axis=-1)(h2square_a)
@@ -91,8 +92,8 @@ else:
     else:
         h2square = Activation('relu')(h2square_a)
 
-    h3square_1 = Conv2D(filters=20, kernel_size=9, use_bias=False, padding='same')(h2square)
-    h3square_2 = Conv2D(filters=20, kernel_size=5, use_bias=False, padding='same')(h2square)
+    h3square_1 = Conv2D(filters=20, kernel_size=9, use_bias=False, kernel_regularizer = l2reg, padding='same')(h2square)
+    h3square_2 = Conv2D(filters=20, kernel_size=5, use_bias=False, kernel_regularizer = l2reg, padding='same')(h2square)
     h3square_a = concatenate([h3square_1, h3square_2], axis=-1)
     if BN:
         h3square_b = BatchNormalization(axis=-1)(h3square_a)
@@ -100,11 +101,11 @@ else:
     else:
         h3square = Activation('relu')(h3square_a)
 
-    h4square_1 = Conv2D(filters=20, kernel_size=5, activation='relu', padding='same')(h3square)
+    h4square_1 = Conv2D(filters=20, kernel_size=5, activation='relu', kernel_regularizer = l2reg, padding='same')(h3square)
     sequencesquare = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(inputs)
     h4square = concatenate([h4square_1, sequencesquare], axis = -1)
 
-    output = Conv2D(filters=1, kernel_size=3, activation='sigmoid', padding='same')(h4square)
+    output = Conv2D(filters=1, kernel_size=3, activation='sigmoid', kernel_regularizer = l2reg, padding='same')(h4square)
 
     opt = Adam(lr=lr)
     model = Model(input = inputs, output = output)
