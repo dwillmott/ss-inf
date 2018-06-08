@@ -55,7 +55,7 @@ def printtestoutputs(y, yhat, pred, i, testname, testfile):
     #tn, fp, fn, tp = np.sum(confs, axis=0)
     testfile.write('{:20s}  '.format(testname))
     testfile.write('   tn: {:7d}   fp: {:7d}   fn: {:3d}   tp: {:3d}'.format(tn, fp, fn, tp))
-    testfile.write('    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n' % getaccuracy(y, yhat))
+    testfile.write('    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n' % metrics)
     
     return metrics
 

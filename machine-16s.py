@@ -25,7 +25,7 @@ parser.add_argument("--displaysteps", default = 50, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
 parser.add_argument('--useLSTM', dest='useLSTM', default=False, action='store_true')
-parser.add_argument("--length", default = 300, type = int) # 0 = largest permissible
+parser.add_argument("--length", default = 500, type = int) # 0 = largest permissible
 parser.add_argument("--weight", default = 50, type = int)
 parser.add_argument("--reg", default = 0.0001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
@@ -46,8 +46,8 @@ useLSTM = args.useLSTM
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
-datafile = 'data/crw16s-filtered-long.txt'
-idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
+datafile = 'data/crw16s-filtered-%d.txt' % (length,)
+idstring = 'length_{:d}_lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(length, lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
 outputdir = 'outputs/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
 print(idstring)
@@ -125,7 +125,7 @@ validlosses = []
 testlosses = []
 # training loop
 SPE = 100
-for i in range(150):
+for i in range(100):
     
     loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, length), steps_per_epoch = SPE)
     
@@ -141,6 +141,7 @@ for i in range(150):
     validfile.close()
     
     if i % 5 == 4:
+        metricslist = []
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
         for j in range(16):
@@ -158,9 +159,13 @@ for i in range(150):
             plotresults(test_yhat, prefix+'_prob.png')
             plotresults(test_preds, prefix+'_pred.png')
             
-            printtestoutputs(test_y, test_yhat, test_preds, i*SPE, testsetnames[j], testfile)
+            metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, i*SPE, testsetnames[j], testfile))
             
-        testfile.write('\n\n')
+        averagemetrics = np.sum(metricslist, axis = 0)
+        testfile.write('\nmin    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.sum(metricslist, axis = 0)))
+        testfile.write('max    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.amax(metricslist, axis = 0)))
+        testfile.write('avg    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.amin(metricslist, axis = 0)))
+        testfile.write('med    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n\n\n'.format(np.median(metricslist, axis = 0)))
         testfile.close()
     
         model.save(savename)

@@ -145,7 +145,7 @@ def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize
     z = []
     for sequence, structure, state in data:
         length = len(sequence)
-        start = np.random.randint(0, length - sublength)
+        start = np.random.randint(0, length - sublength+1)
         subsequence = keras.utils.to_categorical(sequence[start:start+sublength], num_classes=5)
         sequencearray.append(subsequence)
         
