@@ -162,10 +162,10 @@ for i in range(100):
             metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, i*SPE, testsetnames[j], testfile))
             
         averagemetrics = np.sum(metricslist, axis = 0)
-        testfile.write('\nmin    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.sum(metricslist, axis = 0)))
-        testfile.write('max    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.amax(metricslist, axis = 0)))
-        testfile.write('avg    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n'.format(np.amin(metricslist, axis = 0)))
-        testfile.write('med    ppv:  %0.4f     sen:  %0.4f     acc:  %0.4f\n\n\n'.format(np.median(metricslist, axis = 0)))
+        testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n'.format(tuple(np.amin(metricslist, axis = 0))))
+        testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n'.format(tuple(np.amax(metricslist, axis = 0))))
+        testfile.write('avg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n'.format(tuple(np.mean(metricslist, axis = 0))))
+        testfile.write('med    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.median(metricslist, axis = 0))))
         testfile.close()
     
         model.save(savename)
