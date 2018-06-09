@@ -38,7 +38,6 @@ args = parser.parse_args()
 lr = args.lr
 reg = args.reg
 loadmodel = args.load
-length = args.length
 batchsize = args.batchsize
 weightint = args.weight
 BN = args.BN
@@ -46,9 +45,9 @@ useLSTM = args.useLSTM
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
-datafile = 'data/crw16s-filtered-%d.txt' % (length,)
-idstring = 'length_{:d}_lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(length, lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
-outputdir = 'outputs/'+idstring+'/'
+datafile = 'data/crw5s-comparative.txt'
+idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
+outputdir = 'outputs5s/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
 print(idstring)
 
@@ -117,7 +116,7 @@ else:
 
 print(model.summary())
 
-valid_x, valid_y = makebatch_sub(datafile, batchsize, length)
+valid_x, valid_y = makebatch_sub(datafile, batchsize, None)
 
 losses = []
 validlosses = []
@@ -126,7 +125,7 @@ testlosses = []
 SPE = 100
 for i in range(100):
     
-    loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, length), steps_per_epoch = SPE)
+    loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, None), steps_per_epoch = SPE)
     
     validloss = model.evaluate(valid_x, valid_y, verbose = 0)
     validlosses.append(validloss)
