@@ -26,10 +26,10 @@ parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
 parser.add_argument('--useLSTM', dest='useLSTM', default=False, action='store_true')
 parser.add_argument("--length", default = 500, type = int) # 0 = largest permissible
-parser.add_argument("--weight", default = 50, type = int)
+parser.add_argument("--weight", default = 10, type = int)
 parser.add_argument("--reg", default = 0.0001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
-parser.add_argument("--lr", default= 0.001, type=float)
+parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--loadfile", default= '', type=str)
 
@@ -45,7 +45,7 @@ useLSTM = args.useLSTM
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
-datafile = 'data/crw5s-comparative.txt'
+datafile = 'data/crw5s-filtered.txt'
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
 outputdir = 'outputs5s/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
@@ -69,6 +69,8 @@ testsetnames = ['cuniculi', 'vnecatrix', 'celegans', 'nidulansM',
                 'TabacumC', 'cryptomonasC', 'musM', 'gallisepticum',
                 'syne', 'ecoli', 'subtilis', 'desulfuricans',
                 'reinhardtiiC', 'maritima', 'tenax', 'volcanii']
+
+testsetnames = ['M.fossilis', 'M.glypto', 'O.sativa', 'P.waltl', 'S.pombe']
 
     
 if loadmodel:
@@ -123,7 +125,7 @@ validlosses = []
 testlosses = []
 # training loop
 SPE = 100
-for i in range(100):
+for i in range(30):
     
     loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, None), steps_per_epoch = SPE)
     
@@ -142,9 +144,9 @@ for i in range(100):
         metricslist = []
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
-        for j in range(16):
+        for j in range(5):
             
-            test_x, test_y = makebatch_sub('data/testset.txt', 1, None, batchindices = [j])
+            test_x, test_y = makebatch_sub('data/testset-5s.txt', 1, None, batchindices = [j])
             test_y = np.squeeze(test_y)
             test_yhat = np.squeeze(model.predict_on_batch(test_x))
             test_preds = np.rint(test_yhat)
@@ -157,7 +159,7 @@ for i in range(100):
             plotresults(test_yhat, prefix+'_prob.png')
             plotresults(test_preds, prefix+'_pred.png')
             
-            metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, i*SPE, testsetnames[j], testfile))
+            metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, (i+1)*SPE, testsetnames[j], testfile))
             
         averagemetrics = np.sum(metricslist, axis = 0)
         testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n'.format(tuple(np.amin(metricslist, axis = 0))))
