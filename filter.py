@@ -35,7 +35,7 @@ def filtersequences(sequences, testsequences):
     t = time.time()
     
     for i, seq in enumerate(sequences):
-        if i % (len(sequences)/100) == 0:
+        if i % 1 == 0:
             print('\nChecked %5d of %5d, %ds\n' % (i, len(sequences), time.time() - t))
         
         for testseq in testsequences:
@@ -53,8 +53,8 @@ def filtersequences(sequences, testsequences):
                 
     return outsequences
 
-trainpath = 'data/crw5s-comparative.txt'
-testpath = 'data/testset-5s.txt'
+trainpath = 'strand.txt'
+testpath = 'testdata.txt'
 
 trainfile = open(trainpath, 'r')
 testfile = open(testpath, 'r')
@@ -79,7 +79,7 @@ filteredindices = filtersequences(trainsequences, testsequences)
 
 print(len(filteredindices))
 
-outfile = open('data/crw5s-filtered-2.txt', 'w')
+outfile = open('strand-filtered.txt', 'w')
 
 trainfile = open(trainpath, 'r')
 

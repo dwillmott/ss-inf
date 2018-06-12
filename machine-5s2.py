@@ -42,6 +42,7 @@ batchsize = args.batchsize
 weightint = args.weight
 BN = args.BN
 useLSTM = args.useLSTM
+print(useLSTM)
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
@@ -82,7 +83,8 @@ else:
     inputs = Input(shape=(None, 5))
     
     if useLSTM:
-        h1 = Bidirectional(LSTM(50, return_sequences = True))(inputs)
+        h1_lstm = Bidirectional(LSTM(20, return_sequences = True))(inputs)
+        h1 = concatenate([inputs, h1_lstm], axis=-1)
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
     else:
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(inputs)
