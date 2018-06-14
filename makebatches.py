@@ -53,56 +53,7 @@ def findsize(datafile):
     return int((i+1)/5)
 
 
-def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlength = None):
-    # returns the tuple (batch_x, batch_y)
-    
-    if batchindices is None:
-        if totalsize == None:
-            totalsize = findsize(datafile)
-        batchindices = np.random.choice(totalsize, batchsize, replace=False)
-    
-    f = open(datafile, 'r')
-    
-    data = getsamples(f, batchindices)
-    
-    f.close()
-    
-    lengths = [len(sample[0]) for sample in data]
-    if maxlength == None:
-        maxlength = max(lengths)
-    
-    # make x
-    sequences = [sample[0][:maxlength] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
-    sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])[:,:,:5]
-    
-    #make y
-    z = []
-    for sample in data:
-        structure = sample[1][:maxlength]
-        
-        structurearray = np.zeros([maxlength, maxlength])
-        
-        for i, j in enumerate(structure):
-                if int(j) and int(j) > i:
-                    structurearray[i, int(j)-1] = 1
-        z.append(structurearray)
-    
-    z = np.stack(z)
-    
-    #make mask
-    masks = np.zeros([batchsize, maxlength, maxlength])
-    for i, length in enumerate(lengths):
-        masks[i, :length, :length] = np.triu(np.ones([length, length]))
-    
-    masks = np.expand_dims(masks, -1)
-    
-    return [sequencearray, masks], z
-    
-    
-    
-    return sequencearray, z
-
-#def makebatch_ofone(datafile, batchsize, batchindices = None, totalsize = None):
+#def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlength = None):
     ## returns the tuple (batch_x, batch_y)
     
     #if batchindices is None:
@@ -114,23 +65,78 @@ def makebatch(datafile, batchsize, batchindices = None, totalsize = None, maxlen
     
     #data = getsamples(f, batchindices)
     
-    #sequencearray = []
+    #f.close()
+    
+    #lengths = [len(sample[0]) for sample in data]
+    #if maxlength == None:
+        #maxlength = max(lengths)
+    
+    ## make x
+    #sequences = [sample[0][:maxlength] + (maxlength - length)*[5] for sample, length in zip(data, lengths)]
+    #sequencearray = np.stack([keras.utils.to_categorical(seq, num_classes=6) for seq in sequences])[:,:,:5]
+    
+    ##make y
     #z = []
-    #for sequence, structure, state in data:
-        #length = len(sequence)
+    #for sample in data:
+        #structure = sample[1][:maxlength]
         
-        #sequence = keras.utils.to_categorical(sequence, num_classes=5)
-        #sequencearray.append(sequence)
-        
-        #structurearray = np.zeros([length, length])
+        #structurearray = np.zeros([maxlength, maxlength])
         
         #for i, j in enumerate(structure):
                 #if int(j) and int(j) > i:
                     #structurearray[i, int(j)-1] = 1
         #z.append(structurearray)
     
-    #sequencearray = np.stack(sequencearray)
     #z = np.stack(z)
+    
+    ##make mask
+    #masks = np.zeros([batchsize, maxlength, maxlength])
+    #for i, length in enumerate(lengths):
+        #masks[i, :length, :length] = np.triu(np.ones([length, length]))
+    
+    #masks = np.expand_dims(masks, -1)
+    
+    #return [sequencearray, masks], z
+    
+    
+    
+    #return sequencearray, z
+    
+#def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize = None):
+    ## returns the tuple (batch_x, batch_y)
+    
+    #if batchindices is None:
+        #if totalsize == None:
+            #totalsize = findsize(datafile)
+        #batchindices = np.random.choice(totalsize, batchsize, replace=False)
+    
+    #f = open(datafile, 'r')
+    
+    #data = getsamples(f, batchindices)
+    
+    #mindlength = min([len(sequence) for sequence, structure, state in data]) - 1
+    #if minlength < sublength:
+        #sublength = minlength
+    
+    #sequencearray = []
+    #z = []
+    #for sequence, structure, state in data:
+        #length = len(sequence)
+        #start = np.random.randint(0, length - sublength+1)
+        #subsequence = keras.utils.to_categorical(sequence[start:start+sublength], num_classes=5)
+        #sequencearray.append(subsequence)
+        
+        #substructure = structure[start:start+sublength]
+        #substructurearray = np.zeros([sublength, sublength])
+        
+        #for i, j in enumerate(structure):
+            #if (i > start) and (i < (start+sublength)):
+                #if int(j) and int(j) > i and int(j) <= (start+sublength):
+                    #substructurearray[i-start, int(j)-start-1] = 1
+        #z.append(substructurearray)
+    
+    #sequencearray = np.stack(sequencearray)
+    #z = np.expand_dims(np.stack(z), -1)
     #f.close()
     
     #return sequencearray, z
@@ -148,8 +154,9 @@ def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize
     
     data = getsamples(f, batchindices)
     
-    if not sublength:
-        sublength = min([len(sequence) for sequence, structure, state in data]) - 1
+    minlength = min([len(sequence) for sequence, structure, state in data]) - 1
+    if sublength is None or minlength < sublength:
+        sublength = minlength
     
     sequencearray = []
     z = []
@@ -174,15 +181,16 @@ def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize
     
     return sequencearray, z
 
-def batch_sub_generator(datafile, batchsize, length):
-    totalsize = findsize(datafile)
-    totalsize = (totalsize//batchsize)*batchsize
-    indexlist = np.random.permutation(totalsize)
+
+#def batch_sub_generator(datafile, batchsize, length):
+    #totalsize = findsize(datafile)
+    #totalsize = (totalsize//batchsize)*batchsize
+    #indexlist = np.random.permutation(totalsize)
         
-    while True:
-        for i in range(0, totalsize, batchsize):
-            indices = indexlist[i:i+batchsize]
-            yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
+    #while True:
+        #for i in range(0, totalsize, batchsize):
+            #indices = indexlist[i:i+batchsize]
+            #yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
 
 def batch_sub_generator_fit(datafile, batchsize, length):
     totalsize = findsize(datafile)
@@ -193,22 +201,22 @@ def batch_sub_generator_fit(datafile, batchsize, length):
         indices = indexlist[i:i+batchsize]
         yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
 
-def batch_generator(datafile, batchsize, length = None):
-    totalsize = findsize(datafile)
-    totalsize = (totalsize//batchsize)*batchsize
-    indexlist = np.random.permutation(totalsize)
+#def batch_generator(datafile, batchsize, length = None):
+    #totalsize = findsize(datafile)
+    #totalsize = (totalsize//batchsize)*batchsize
+    #indexlist = np.random.permutation(totalsize)
     
-    while True:
-        for i in range(0, totalsize, batchsize):
-            indices = indexlist[i:i+batchsize]
-            yield makebatch(datafile, batchsize, indices, maxlength = length)
+    #while True:
+        #for i in range(0, totalsize, batchsize):
+            #indices = indexlist[i:i+batchsize]
+            #yield makebatch(datafile, batchsize, indices, maxlength = length)
 
-def batch_generator_fit(datafile, batchsize, length = None):
-    totalsize = findsize(datafile)
-    totalsize = (totalsize//batchsize)*batchsize
-    indexlist = np.random.permutation(totalsize)
+#def batch_generator_fit(datafile, batchsize, length = None):
+    #totalsize = findsize(datafile)
+    #totalsize = (totalsize//batchsize)*batchsize
+    #indexlist = np.random.permutation(totalsize)
     
-    for i in range(0, totalsize, batchsize):
-        indices = indexlist[i:i+batchsize]
-        yield makebatch(datafile, batchsize, indices, maxlength = length)
+    #for i in range(0, totalsize, batchsize):
+        #indices = indexlist[i:i+batchsize]
+        #yield makebatch(datafile, batchsize, indices, maxlength = length)
 
