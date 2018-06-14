@@ -38,7 +38,7 @@ def filtersequences(sequences, testsequences):
         if i % 1 == 0:
             print('\nChecked %5d of %5d, %ds\n' % (i, len(sequences), time.time() - t))
         
-        for testseq in testsequences:
+        for j, testseq in enumerate(testsequences):
             d = strmatches(testseq, seq)
             
             if d > (len(testseq)*0.75):
@@ -48,13 +48,16 @@ def filtersequences(sequences, testsequences):
             
             lcs = longest_common_substring(testseq, seq)
             if lcs[1] > 0.1:
+                outsequences.append(i)
                 print(i, len(seq), len(testseq), longest_common_substring(testseq, seq))
+                break
             
-                
+    
     return outsequences
 
-trainpath = 'strand.txt'
-testpath = 'testdata.txt'
+trainpath = 'strand/rnasep.txt'
+testpath = 'testdata/testdata.txt'
+outpath = 'strand/rnasep-filtered.txt'
 
 trainfile = open(trainpath, 'r')
 testfile = open(testpath, 'r')
@@ -79,7 +82,7 @@ filteredindices = filtersequences(trainsequences, testsequences)
 
 print(len(filteredindices))
 
-outfile = open('strand-filtered.txt', 'w')
+outfile = open(outpath, 'w')
 
 trainfile = open(trainpath, 'r')
 
