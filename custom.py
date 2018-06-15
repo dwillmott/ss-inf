@@ -44,22 +44,26 @@ def plotlosses(losses, validlosses, testlosses, name, step = 1):
     plt.close(fig)
     return
 
-def printtestoutputs(y, yhat, pred, i, testname, testfile, mfeacc):
+def printtestoutputs(y, yhat, pred, testname, testfile, mfeacc, threshold = 0.5):
     
     tn, fp, fn, tp = confusion_matrix(y[np.triu_indices(y.shape[1])].flatten(),
                                        pred[np.triu_indices(pred.shape[1])].flatten(),
                                        labels=[0,1]).ravel()
     
-    metrics = getaccuracy(y, yhat)
+    
+    truepairs = makestructure(y, threshold)
+    predpairs = makestructure(np.triu(yhat), threshold)
+    metrics = getmetrics(truepairs, predpairs)
+    #print(testname, metrics)
     
     #tn, fp, fn, tp = np.sum(confs, axis=0)
     testfile.write('{:20s}  '.format(testname))
-    testfile.write('   tn: {:7d}   fp: {:7d}   fn: {:3d}   tp: {:3d}'.format(tn, fp, fn, tp))
-    testfile.write('    ppv:  %0.4f   sen:  %0.4f   acc:  %0.4f   mfe acc: %0.4f\n' % (metrics + (mfeacc,)))
+    testfile.write('tn: {:7d}  fp: {:7d}  fn: {:3d}  tp: {:3d}  '.format(tn, fp, fn, tp))
+    testfile.write('ppv: %0.4f  sen: %0.4f  acc: %0.4f  mfe acc: %0.4f%s\n' % (metrics + (mfeacc, '' + '  ***'*(metrics[-1] < mfeacc))))
     
     return metrics
 
-def printoutputs(batch_y, batch_preds, i, step, loss, validfile):
+def printoutputs(batch_y, batch_preds, step, loss, validfile):
     
     uppertri = np.triu_indices(batch_y.shape[1])
     
@@ -68,54 +72,106 @@ def printoutputs(batch_y, batch_preds, i, step, loss, validfile):
                                        labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
     
     tn, fp, fn, tp = np.sum(confs, axis=0)
-    printstring = '{:5d}  {:5.5f}     tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(i*step, loss, tn, fp, fn, tp)
+    printstring = '{:5d}  {:5.5f}     tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(step, loss, tn, fp, fn, tp)
     print(printstring)
     validfile.write(printstring+'\n')
     
     return
 
+def makestructure(originalstructure, truestructure = None, truepairs = set([])):
+    structure = np.copy(originalstructure)
+    pairs = set([])
+    while np.any(structure > 0.6):
+        newpair = np.unravel_index(np.argmax(structure), structure.shape)
+        pairs.add(newpair)
+        #print(truestructure[newpair] > 0.5, structure[newpair])
+        
+        structure[newpair[0]] = 0
+        structure[:,newpair[1]] = 0
+    #print('\n\n\n')
+        
+        #metrics = getmetrics(truepairs, pairs)
+        #print('ppv:  %0.4f   sen:  %0.4f   acc:  %0.4f' % metrics)
+    
+    return pairs
 
-def getpairs_rows(structure):
-    structurethresh = (structure>0.5).astype(float)
-    rowmax = np.argmax(structure, axis = 0)
-    rowsum = np.sum(structurethresh, axis = 0)
-    pairset = set([(j, r) for j, r in enumerate(rowmax) if rowsum[j]])
-    return pairset
+def makestructure_nested(originalstructure, threshold = 0.5, truestructure = None, truepairs = set([])):
+    structure = np.copy(originalstructure)
+    pairs = set([])
+    while np.any(structure > threshold):
+        newpair = np.unravel_index(np.argmax(structure), structure.shape)
+        pairs.add(newpair)
+        #print(truestructure[newpair] > 0.5, structure[newpair])
+        
+        structure[:newpair[0],newpair[0]:newpair[1]+1] = 0
+        structure[newpair[0]:newpair[1]+1,newpair[1]:] = 0
+        #print(pairs)
+    #print('\n\n\n')
+        
+        #metrics = getmetrics(truepairs, pairs)
+        #print('ppv:  %0.4f   sen:  %0.4f   acc:  %0.4f' % metrics)
+    
+    return pairs
+    
+    
 
 
-def getpairs_cols(structure):
-    structurethresh = (structure>0.5).astype(float)
-    rowmax = np.argmax(structure, axis = 1)
-    rowsum = np.sum(structurethresh, axis = 1)
-    pairset = set([(r, j) for j, r in enumerate(rowmax) if rowsum[j]])
-    return pairset
+#def getpairs_rows(structure):
+    #structurethresh = (structure>0.5).astype(float)
+    #rowmax = np.argmax(structure, axis = 0)
+    #rowsum = np.sum(structurethresh, axis = 0)
+    #pairlist = [(j, r) for j, r in enumerate(rowmax) if rowsum[j]]
+    #rlist = [r[1] for r in pairlist]
+    #print([rlist.count(i) for i in range(900)])
+    #pairset = set([(j, r) for j, r in enumerate(rowmax) if rowsum[j]])
+    #return pairset
+
+
+#def getpairs_cols(structure):
+    #structurethresh = (structure>0.5).astype(float)
+    #rowmax = np.argmax(structure, axis = 1)
+    #rowsum = np.sum(structurethresh, axis = 1)
+    #pairlist = [(j, r) for j, r in enumerate(rowmax) if rowsum[j]]
+    #rlist = [r[1] for r in pairlist]
+    #print([rlist.count(i) for i in range(900)])
+    #pairset = set([(j, r) for j, r in enumerate(rowmax) if rowsum[j]])
+    #return pairset
 
 
 def getaccuracy(y, yhat):
     
-    seqlength = y.shape[1]
+    #seqlength = y.shape[1]
     
-    truepairs = getpairs_rows(y)
-    predictedpairs_rows = getpairs_rows(np.triu(yhat))
+    #truepairs = getpairs_rows(y)
+    #predictedpairs_rows = getpairs_rows(np.triu(yhat))
     
-    rowmetrics = getmetrics(truepairs, predictedpairs_rows)
     
-    truepairs = getpairs_cols(y)
-    predictedpairs_cols = getpairs_cols(np.triu(yhat))
-    colmetrics = getmetrics(truepairs, predictedpairs_cols)
+    #rowmetrics = getmetrics(truepairs, predictedpairs_rows)
     
-    return colmetrics
+    #truepairs = getpairs_cols(y)
+    #predictedpairs_cols = getpairs_cols(np.triu(yhat))
+    #colmetrics = getmetrics(truepairs, predictedpairs_cols)
+    
+    truepairs = makestructure(y, y)
+    pickpairs = makestructure(np.triu(yhat), y, truepairs)
+    pickmetrics = getmetrics(truepairs, pickpairs)
+    
+    #print(sorted(truepairs, key = lambda y : y[0]))
+    #print('\n\n\n')
+    #print(sorted(predictedpairs_rows, key = lambda y : y[0]))
+    #print('\n\n\n')
+    #print(sorted(predictedpairs_cols, key = lambda y : y[0]))
+    
+    return pickmetrics
 
 
 def getmetrics(native, predicted, name = None):
     
-    if not len(predicted):
+    if not len(predicted) or not len(native):
         return 0.0, 0.0, 0.0
     tp = native.intersection(predicted)
     fn = native.difference(predicted)
     fp = predicted.difference(native)
-    
-    
     
     PPV = len(tp)/float(len(predicted))
     sen = len(tp)/float(len(native))

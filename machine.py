@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import keras.backend as k
 
 from keras.models import Model
-from keras.layers import Input, Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional, Concatenate, BatchNormalization
+from keras.layers import Input, Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional, Concatenate, BatchNormalization, TimeDistributed
 from keras.optimizers import RMSprop, Adam
 from keras.regularizers import l2
 
@@ -32,6 +32,7 @@ parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--loadfile", default= '', type=str)
+parser.add_argument("--threshold", default=0.5, type=float)
 
 args = parser.parse_args()
 
@@ -43,13 +44,14 @@ batchsize = args.batchsize
 weightint = args.weight
 BN = args.BN
 useLSTM = args.useLSTM
+threshold = args.threshold
 
 weight = k.constant(weightint)
 l2reg = l2(reg)
 datafile = 'strand/strand-filtered.txt'
 
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
-outputdir = 'outputs_strand/'+idstring+'/'
+outputdir = 'outputs_convtest_control/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
 print(idstring)
 
@@ -91,7 +93,7 @@ if loadmodel:
             'tf': tf,
             'weighted_binary_cross_entropy' : weighted_binary_cross_entropy})
     
-    #test_x, test_y = makebatch_sub('hiv.txt', 1, 4000, batchindices = [0])
+    #test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [0])
     #test_y = np.squeeze(test_y)
     #test_yhat = np.squeeze(model.predict_on_batch(test_x))
     #test_preds = np.rint(test_yhat)
@@ -105,14 +107,47 @@ if loadmodel:
     #plotresults(test_y, prefix+'_truth.png')
     #plotresults(test_yhat, prefix+'_prob.png')
     #plotresults(test_preds, prefix+'_pred.png')
-    #quit()
+    
+    SPE = 0
+    i = 0
+    
+    
+    testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
+    testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
+    for k, testset in enumerate(testsets):
+        metricslist = []
+        testfile.write('\n{:s} test set\n\n'.format(testset))
+        for j in range(5):
+            ind = k*5 + j
+            test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [ind])
+            test_y = np.squeeze(test_y)
+            test_yhat = np.squeeze(model.predict_on_batch(test_x))
+            test_preds = np.rint(test_yhat)
+        
+            prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
+            
+            #if not os.path.exists(prefix[:-3]):
+                #os.makedirs(prefix[:-3])
+            #plotresults(test_y, prefix+'_truth.png')
+            #plotresults(test_yhat, prefix+'_prob.png')
+            #plotresults(test_preds, prefix+'_pred.png')
+            
+            metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, (i+1)*SPE, testsetnames[ind], testfile, mfeaccuracy[ind], threshold))
+        
+        averagemetrics = np.sum(metricslist, axis = 0)
+        #testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
+        testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(metricslist, axis = 0))))
+        #testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.amax(metricslist, axis = 0))))
+        #testfile.write('med    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.median(metricslist, axis = 0))))
+    quit()
 
 else:
     inputs = Input(shape=(None, 5))
     
     if useLSTM:
-        h1_lstm = Bidirectional(LSTM(20, return_sequences = True))(inputs)
-        h1 = Concatenate(axis=-1)([inputs, h1_lstm])
+        h1_lstm = Bidirectional(LSTM(30, return_sequences = True))(inputs)
+        h1_lstmout = TimeDistributed(Dense(20))(h1_lstm)
+        h1 = Concatenate(axis=-1)([inputs, h1_lstmout])
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
     else:
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(inputs)
@@ -155,9 +190,11 @@ validlosses = []
 testlosses = []
 # training loop
 SPE = 100
-for i in range(100):
+for i in range(150):
     
     loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, maxlength), steps_per_epoch = SPE)
+    
+    totalstep = (i+1)*SPE
     
     validloss = model.evaluate(valid_x, valid_y, verbose = 0)
     validlosses.append(validloss)
@@ -167,12 +204,12 @@ for i in range(100):
     plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', step = SPE)
     
     validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-    printoutputs(valid_y, valid_preds, i, SPE, validloss, validfile)
+    printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 5 == 4:
+    if i % 10 == 9:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-        testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
+        testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
         for k, testset in enumerate(testsets):
             metricslist = []
             testfile.write('\n{:s} test set\n\n'.format(testset))
@@ -183,7 +220,7 @@ for i in range(100):
                 test_yhat = np.squeeze(model.predict_on_batch(test_x))
                 test_preds = np.rint(test_yhat)
             
-                prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
+                #prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
                 
                 #if not os.path.exists(prefix[:-3]):
                     #os.makedirs(prefix[:-3])
@@ -191,7 +228,7 @@ for i in range(100):
                 #plotresults(test_yhat, prefix+'_prob.png')
                 #plotresults(test_preds, prefix+'_pred.png')
                 
-                metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, (i+1)*SPE, testsetnames[ind], testfile, mfeaccuracy[ind]))
+                metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, testsetnames[ind], testfile, mfeaccuracy[ind], threshold))
             
             averagemetrics = np.sum(metricslist, axis = 0)
             testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
