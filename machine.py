@@ -7,6 +7,7 @@ from sklearn.metrics import confusion_matrix
 from matplotlib import colors
 import matplotlib.pyplot as plt
 import keras.backend as k
+import datetime
 
 from keras.models import Model
 from keras.layers import Input, Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional, Concatenate, BatchNormalization, TimeDistributed
@@ -33,6 +34,7 @@ parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--loadfile", default= '', type=str)
 parser.add_argument("--threshold", default=0.5, type=float)
+parser.add_argument("--usesecondLSTM", dest='usesecondLSTM', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -45,17 +47,23 @@ weightint = args.weight
 BN = args.BN
 useLSTM = args.useLSTM
 threshold = args.threshold
+secondLSTM = args.usesecondLSTM
 
+pictureoutput = False
 weight = k.constant(weightint)
 l2reg = l2(reg)
-datafile = 'strand/strand-filtered.txt'
+datafile = 'strand/16s-filtered.txt'
+today = datetime.datetime.today()
+'{:02d}_{:02d}'.format(today.month, today.day)
 
-idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM))
-outputdir = 'outputs_convtest_control/'+idstring+'/'
+
+idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM), '_secondLSTM'*(secondLSTM))
+outputtopdir = 'outputs_strand_{0:02d}_{1:02d}'.format(today.month, today.day)
+outputdir = outputtopdir+'/'+idstring+'/'
 savename = 'saved/'+idstring+'.hdf5'
 print(idstring)
 
-for path in ['outputs5s', 'saved', outputdir]:
+for path in [outputtopdir, 'saved', outputdir]:
     if not os.path.exists(path):
         os.makedirs(path)
 plt.gray()
@@ -93,59 +101,35 @@ if loadmodel:
             'tf': tf,
             'weighted_binary_cross_entropy' : weighted_binary_cross_entropy})
     
-    #test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [0])
-    #test_y = np.squeeze(test_y)
-    #test_yhat = np.squeeze(model.predict_on_batch(test_x))
-    #test_preds = np.rint(test_yhat)
-    
-    #testfile = open('hiv-accuracy.txt', 'a+')
-    #printtestoutputs(test_y, test_yhat, test_preds, 0, 'hiv', testfile, mfeacc = 0.0)
-    
-    #prefix = 'hiv'
-    ##if not os.path.exists(prefix[:-3]):
-        ##os.makedirs(prefix[:-3])
-    #plotresults(test_y, prefix+'_truth.png')
-    #plotresults(test_yhat, prefix+'_prob.png')
-    #plotresults(test_preds, prefix+'_pred.png')
-    
-    SPE = 0
-    i = 0
-    
-    
     testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-    testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format((i+1)*SPE))
+    testfile.write('\n-----\ntest losses, end\n\n')
     for k, testset in enumerate(testsets):
         metricslist = []
-        testfile.write('\n{:s} test set\n\n'.format(testset))
+        #testfile.write('\n{:s} test set\n\n'.format(testset))
         for j in range(5):
             ind = k*5 + j
             test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [ind])
             test_y = np.squeeze(test_y)
             test_yhat = np.squeeze(model.predict_on_batch(test_x))
             test_preds = np.rint(test_yhat)
-        
-            prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
             
-            #if not os.path.exists(prefix[:-3]):
-                #os.makedirs(prefix[:-3])
-            #plotresults(test_y, prefix+'_truth.png')
-            #plotresults(test_yhat, prefix+'_prob.png')
-            #plotresults(test_preds, prefix+'_pred.png')
+            truepairs = makestructure(test_y, threshold)
+            predpairs = makestructure(np.triu(test_yhat), threshold)
+            metrics = getmetrics(truepairs, predpairs)
             
-            metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, (i+1)*SPE, testsetnames[ind], testfile, mfeaccuracy[ind], threshold))
+            metricslist.append(metrics)
         
         averagemetrics = np.sum(metricslist, axis = 0)
-        #testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
-        testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(metricslist, axis = 0))))
-        #testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.amax(metricslist, axis = 0))))
-        #testfile.write('med    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.median(metricslist, axis = 0))))
+        testfile.write('{0[0]:15s}: avg    ppv:  {0[1]:.4f}     sen:  {0[2]:.4f}     acc:  {0[3]:.4f}\n\n'.format((testset,) + tuple(np.mean(metricslist, axis = 0))))
     quit()
 
 else:
     inputs = Input(shape=(None, 5))
     
     if useLSTM:
-        h1_lstm = Bidirectional(LSTM(30, return_sequences = True))(inputs)
+        h1_lstm = Bidirectional(LSTM(75, return_sequences = True))(inputs)
+        if secondLSTM:
+            h1_lstm = Bidirectional(LSTM(50, return_sequences = True))(h1_lstm)
         h1_lstmout = TimeDistributed(Dense(20))(h1_lstm)
         h1 = Concatenate(axis=-1)([inputs, h1_lstmout])
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
@@ -190,7 +174,7 @@ validlosses = []
 testlosses = []
 # training loop
 SPE = 100
-for i in range(150):
+for i in range(200):
     
     loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, maxlength), steps_per_epoch = SPE)
     
@@ -207,9 +191,10 @@ for i in range(150):
     printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 10 == 9:
+    if i % 20 == 19:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
+        setmetrics = []
         for k, testset in enumerate(testsets):
             metricslist = []
             testfile.write('\n{:s} test set\n\n'.format(testset))
@@ -219,22 +204,27 @@ for i in range(150):
                 test_y = np.squeeze(test_y)
                 test_yhat = np.squeeze(model.predict_on_batch(test_x))
                 test_preds = np.rint(test_yhat)
-            
-                #prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
                 
-                #if not os.path.exists(prefix[:-3]):
-                    #os.makedirs(prefix[:-3])
-                #plotresults(test_y, prefix+'_truth.png')
-                #plotresults(test_yhat, prefix+'_prob.png')
-                #plotresults(test_preds, prefix+'_pred.png')
+                if pictureoutput:
+            
+                    prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
+                    
+                    if not os.path.exists(prefix[:-3]):
+                        os.makedirs(prefix[:-3])
+                    plotresults(test_y, prefix+'_truth.png')
+                    plotresults(test_yhat, prefix+'_prob.png')
+                    plotresults(test_preds, prefix+'_pred.png')
                 
                 metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, testsetnames[ind], testfile, mfeaccuracy[ind], threshold))
             
-            averagemetrics = np.sum(metricslist, axis = 0)
-            testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
-            testfile.write('avg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(metricslist, axis = 0))))
-            testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.amax(metricslist, axis = 0))))
+            #testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
+            testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(metricslist, axis = 0))))
+            #testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.amax(metricslist, axis = 0))))
             #testfile.write('med    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.median(metricslist, axis = 0))))
+            setmetrics.append(np.mean(metricslist, axis = 0))
+        
+        testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(setmetrics, axis = 0))))
+        testfile.close()
     
         model.save(savename)
-        
+
