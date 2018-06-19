@@ -53,7 +53,7 @@ def findsize(datafile):
     return int((i+1)/5)
 
 
-def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize = None):
+def makebatch(datafile, batchsize, sublength, batchindices = None, totalsize = None):
     # returns the tuple (batch_x, batch_y)
     
     if batchindices is None:
@@ -101,5 +101,5 @@ def batch_generator(datafile, batchsize, length):
         indexlist = np.random.permutation(totalsize)
         for i in range(0, totalsize, batchsize):
             indices = indexlist[i:i+batchsize]
-            yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
+            yield makebatch(datafile, batchsize, length, indices, totalsize)
 

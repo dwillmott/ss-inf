@@ -11,9 +11,9 @@ def converttonum(letter):
 
 
 def getsequenceandstructure(filename):
-    print(filename)
+    #print(filename)
     with open(filename, 'r') as f2:
-        lines = (line for line in f2 if (line.lstrip()[0].isnumeric() and 'energy' not in line.lower() and '=' not in line))
+        lines = (line for line in f2 if ('energy' not in line.lower() and '=' not in line))
     #f2.close()
         data = np.loadtxt(lines, dtype='str')
     
@@ -40,18 +40,23 @@ def writedatafile(paths, outfile):
     f.close()
     return
 
-if __name__ == '__main__':
-    
-    # CHANGE THESE IF YOU'RE USING YOUR OWN DATA
-    datadirectory = 'testdata'  # directory with .ct files
-    outfile = 'testdata.txt'  # output file to write to
-    headersize = 5  # number of lines in the .ct file before the sequence begins
-    
-    
-    # get all filepaths
+def main(datadirectory, outfile):
     ctglobstring = datadirectory + '/**/*.ct'
     nopctglobstring = datadirectory + '/**/*.nopct'
     paths = glob.glob(ctglobstring, recursive = True) + glob.glob(nopctglobstring, recursive = True)
     
     writedatafile(paths, outfile)
+
+if __name__ == '__main__':
+    
+    # CHANGE THESE IF YOU'RE USING YOUR OWN DATA
+    datadirectory = 'hiv'  # directory with .ct files
+    outfile = 'hiv.txt'  # output file to write to
+    
+    main(datadirectory, outfile)
+    
+    #types = ['23s', '16s', '5s', 'intron', 'rnasep']
+    
+    #for rnatype in types:
+        #main('strand/'+rnatype, 'strand/'+rnatype+'.txt')
     
