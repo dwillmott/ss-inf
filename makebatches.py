@@ -93,12 +93,13 @@ def makebatch_sub(datafile, batchsize, sublength, batchindices = None, totalsize
     return sequencearray, z
 
 
-def batch_sub_generator_fit(datafile, batchsize, length):
+def batch_generator(datafile, batchsize, length):
     totalsize = findsize(datafile)
     totalsize = (totalsize//batchsize)*batchsize
-    indexlist = np.random.permutation(totalsize)
     
-    for i in range(0, totalsize, batchsize):
-        indices = indexlist[i:i+batchsize]
-        yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
+    while True:
+        indexlist = np.random.permutation(totalsize)
+        for i in range(0, totalsize, batchsize):
+            indices = indexlist[i:i+batchsize]
+            yield makebatch_sub(datafile, batchsize, length, indices, totalsize)
 

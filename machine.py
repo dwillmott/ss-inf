@@ -26,16 +26,14 @@ parser.add_argument("--displaysteps", default = 50, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
-parser.add_argument('--useLSTM', dest='useLSTM', default=False, action='store_true')
+parser.add_argument('--LSTMlayers', default = 0, type = int)
 parser.add_argument("--weight", default = 20, type = int)
 parser.add_argument("--reg", default = 0.00001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
-parser.add_argument("--loadfile", default= '', type=str)
 parser.add_argument("--threshold", default=0.5, type=float)
-parser.add_argument("--usesecondLSTM", dest='usesecondLSTM', default=False, action='store_true')
-
+parser.add_argument("--dataset", type=str)
 args = parser.parse_args()
 
 lr = args.lr
@@ -45,33 +43,38 @@ maxlength = args.maxlength
 batchsize = args.batchsize
 weightint = args.weight
 BN = args.BN
-useLSTM = args.useLSTM
 threshold = args.threshold
-secondLSTM = args.usesecondLSTM
+LSTMlayers = args.LSTMlayers
+dataset = args.dataset
+testpath = 'testdata/testdata.txt'
 
-pictureoutput = False
+dataset_dict = {'strand' : 'strand/strand-filtered.txt',
+                'strand16s' : 'strand/16s-filtered.txt'}
+datapath = dataset_dict[dataset]
+
 weight = k.constant(weightint)
 l2reg = l2(reg)
-datafile = 'strand/16s-filtered.txt'
+
+idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}'.format(lr, 
+                                                                    reg, 
+                                                                    'no'*(not BN),
+                                                                    LSTMlayers, 
+                                                                    weightint)
 today = datetime.datetime.today()
-'{:02d}_{:02d}'.format(today.month, today.day)
-
-
-idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_weight={:d}{:s}{:s}'.format(lr, reg, 'no'*(not BN), weightint, '_noLSTM'*(not useLSTM), '_secondLSTM'*(secondLSTM))
-outputtopdir = 'outputs_strand_{0:02d}_{1:02d}'.format(today.month, today.day)
+outputtopdir = 'outputs_{:s}_{:02d}_{:02d}'.format(dataset, today.month, today.day)
 outputdir = outputtopdir+'/'+idstring+'/'
-savename = 'saved/'+idstring+'.hdf5'
-print(idstring)
+savename = 'saved/'+dataset+'/'+idstring+'.hdf5'
+print('\n'+idstring+'\n')
 
-for path in [outputtopdir, 'saved', outputdir]:
+for path in [outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
     if not os.path.exists(path):
         os.makedirs(path)
 plt.gray()
-#quit()
 
 def weighted_binary_cross_entropy(labels, logits):
     class_weights = labels*weight + (1 - labels)
     unweighted_losses = K.binary_crossentropy(target=labels, output=logits)
+    
     weighted_losses = unweighted_losses * class_weights
     
     loss = K.mean(tf.matrix_band_part(K.squeeze(weighted_losses, -1), 0, -1))
@@ -103,32 +106,28 @@ if loadmodel:
     
     testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
     testfile.write('\n-----\ntest losses, end\n\n')
-    for k, testset in enumerate(testsets):
-        metricslist = []
-        #testfile.write('\n{:s} test set\n\n'.format(testset))
-        for j in range(5):
-            ind = k*5 + j
-            test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [ind])
-            test_y = np.squeeze(test_y)
-            test_yhat = np.squeeze(model.predict_on_batch(test_x))
-            test_preds = np.rint(test_yhat)
-            
-            truepairs = makestructure(test_y, threshold)
-            predpairs = makestructure(np.triu(test_yhat), threshold)
-            metrics = getmetrics(truepairs, predpairs)
-            
-            metricslist.append(metrics)
+    testmetrics = []
         
-        averagemetrics = np.sum(metricslist, axis = 0)
-        testfile.write('{0[0]:15s}: avg    ppv:  {0[1]:.4f}     sen:  {0[2]:.4f}     acc:  {0[3]:.4f}\n\n'.format((testset,) + tuple(np.mean(metricslist, axis = 0))))
+    for k, testset in enumerate(testsets[:4]):
+        
+        testfile.write('\n{:15s} test set\n\n'.format(testset))
+        
+        for j in range(k*5, (k+1)*5):
+            testmetrics.append(test_on_sequence(testfile, testpath, testname[j], j, model, threshold, mfeacc[j]))
+        
+        writeavgmetrics(testfile, testset, testmetrics[-5:])
+    
+    writeavgmetrics(testfile, 'total', testmetrics)
+    testfile.close()
+
     quit()
 
 else:
     inputs = Input(shape=(None, 5))
     
-    if useLSTM:
+    if LSTMlayers:
         h1_lstm = Bidirectional(LSTM(75, return_sequences = True))(inputs)
-        if secondLSTM:
+        if LSTMlayers > 1:
             h1_lstm = Bidirectional(LSTM(50, return_sequences = True))(h1_lstm)
         h1_lstmout = TimeDistributed(Dense(20))(h1_lstm)
         h1 = Concatenate(axis=-1)([inputs, h1_lstmout])
@@ -167,16 +166,13 @@ else:
 
 print(model.summary())
 
-valid_x, valid_y = makebatch_sub(datafile, batchsize, maxlength)
+valid_x, valid_y = makebatch(datapath, batchsize, maxlength)
 
-losses = []
 validlosses = []
-testlosses = []
 # training loop
-SPE = 100
+SPE = 10
 for i in range(200):
-    
-    loss = model.fit_generator(batch_sub_generator_fit(datafile, batchsize, maxlength), steps_per_epoch = SPE)
+    model.fit_generator(batch_generator(datapath, batchsize, maxlength), steps_per_epoch = SPE)
     
     totalstep = (i+1)*SPE
     
@@ -185,46 +181,28 @@ for i in range(200):
     
     valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
     valid_preds = np.rint(valid_yhat)
-    plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', step = SPE)
+    plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', stepsize = SPE)
     
     validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
     printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 20 == 19:
+    if i % 20 == 0:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
-        setmetrics = []
-        for k, testset in enumerate(testsets):
-            metricslist = []
-            testfile.write('\n{:s} test set\n\n'.format(testset))
-            for j in range(5):
-                ind = k*5 + j
-                test_x, test_y = makebatch_sub('testdata/testdata.txt', 1, None, batchindices = [ind])
-                test_y = np.squeeze(test_y)
-                test_yhat = np.squeeze(model.predict_on_batch(test_x))
-                test_preds = np.rint(test_yhat)
-                
-                if pictureoutput:
-            
-                    prefix = outputdir+'/testset/%02d_%s/%05d' % (ind, testsetnames[ind], i*SPE)
-                    
-                    if not os.path.exists(prefix[:-3]):
-                        os.makedirs(prefix[:-3])
-                    plotresults(test_y, prefix+'_truth.png')
-                    plotresults(test_yhat, prefix+'_prob.png')
-                    plotresults(test_preds, prefix+'_pred.png')
-                
-                metricslist.append(printtestoutputs(test_y, test_yhat, test_preds, testsetnames[ind], testfile, mfeaccuracy[ind], threshold))
-            
-            #testfile.write('\nmin    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.amin(metricslist, axis = 0))))
-            testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(metricslist, axis = 0))))
-            #testfile.write('max    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.amax(metricslist, axis = 0))))
-            #testfile.write('med    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n\n'.format(tuple(np.median(metricslist, axis = 0))))
-            setmetrics.append(np.mean(metricslist, axis = 0))
+        testmetrics = []
         
-        testfile.write('\navg    ppv:  {0[0]:.4f}     sen:  {0[1]:.4f}     acc:  {0[2]:.4f}\n\n'.format(tuple(np.mean(setmetrics, axis = 0))))
+        for k, testset in enumerate(testsets[:4]):
+            
+            testfile.write('\n{:15s} test set\n\n'.format(testset))
+            
+            for j in range(k*5, (k+1)*5):
+                testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
+            
+            writeavgmetrics(testfile, testset, testmetrics[-5:])
+        
+        writeavgmetrics(testfile, 'total', testmetrics)
         testfile.close()
     
         model.save(savename)
-
+        
