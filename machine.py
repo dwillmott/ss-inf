@@ -21,13 +21,13 @@ from arch import *
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--iterations", default = 20000, type = int)
+parser.add_argument("--iterations", default = 25000, type = int)
 parser.add_argument("--displaysteps", default = 50, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
 parser.add_argument('--LSTMlayers', default = 0, type = int)
-parser.add_argument("--weight", default = 20, type = int)
+parser.add_argument("--weight", default = 1, type = int)
 parser.add_argument("--reg", default = 0.00001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
@@ -48,9 +48,11 @@ threshold = args.threshold
 LSTMlayers = args.LSTMlayers
 dataset = args.dataset
 testpath = 'testdata/testdata.txt'
+zspath = 'testdata/testset.txt'
 
 dataset_dict = {'strand' : 'strand/strand-filtered.txt',
-                'strand16s' : 'strand/16s-filtered.txt'}
+                'strand16s' : 'strand/16s-filtered.txt',
+                'strand16s-both' : 'strand/16s-filtered_both.txt'}
 datapath = dataset_dict[dataset]
 
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}'.format(lr, 
@@ -70,6 +72,10 @@ for path in ['outputs', outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
 plt.gray()
 
 
+zsnames = ['cuniculi', 'vnecatrix', 'celegans', 'nidulansM',
+                'TabacumC', 'cryptomonasC', 'musM', 'gallisepticum',
+                'syne', 'ecoli', 'subtilis', 'desulfuricans',
+                'reinhardtiiC', 'maritima', 'tenax', 'volcanii']
 
 testsets = ['16s_small', '16s_extra', '16s_long', '16s_med', 'rnasep', 'intron', '5s']
 
@@ -153,8 +159,18 @@ for i in range(iterations//SPE):
             
             writeavgmetrics(testfile, testset, testmetrics[-5:])
         
+        writeavgmetrics(testfile, 'david test total', testmetrics)
+        
+        for k, zsseq in enumerate(zsnames):
+            for j in range(16):
+                testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, None))
+            
+            writeavgmetrics(testfile, 'zs', testmetrics[-16:])
+        
         writeavgmetrics(testfile, 'total', testmetrics)
         testfile.close()
+        
+        
     
         model.save(savename)
         
