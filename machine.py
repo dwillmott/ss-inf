@@ -52,7 +52,8 @@ zspath = 'testdata/testset.txt'
 
 dataset_dict = {'strand' : 'strand/strand-filtered.txt',
                 'strand16s' : 'strand/16s-filtered.txt',
-                'strand16s-both' : 'strand/16s-filtered_both.txt'}
+                'strand16s-both' : 'strand/16s-filtered_both.txt',
+                'strand16s-random' : 'strand/16s-filtered_random.txt'}
 datapath = dataset_dict[dataset]
 
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}'.format(lr, 
@@ -145,32 +146,38 @@ for i in range(iterations//SPE):
     printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 20 == 0:
+    if i % 50 == 49:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
         testmetrics = []
         
+        # david set
         for k, testset in enumerate(testsets[:4]):
-            
             testfile.write('\n{:15s} test set\n\n'.format(testset))
-            
             for j in range(k*5, (k+1)*5):
                 testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
             
             writeavgmetrics(testfile, testset, testmetrics[-5:])
         
-        writeavgmetrics(testfile, 'david test total', testmetrics)
+        writeavgmetrics(testfile, 'david 16s test total', testmetrics)
         
-        for k, zsseq in enumerate(zsnames):
-            for j in range(16):
-                testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, None))
+        # zs set
+        testfile.write('\n{:15s} test set\n\n'.format('zs'))
+        for j, zsseq in enumerate(zsnames):
+            testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, None))
             
-            writeavgmetrics(testfile, 'zs', testmetrics[-16:])
+        writeavgmetrics(testfile, 'zs total', testmetrics[-16:])
         
         writeavgmetrics(testfile, 'total', testmetrics)
+        
+        
+        # random set
+        #for k in range(50):
+            #testmetrics.append(test_on_sequence(testfile, randompath, str(j), j, model, threshold, None))
+        
+        #writeavgmetrics(testfile, 'random set', testmetrics[-50:])
+        
         testfile.close()
-        
-        
     
         model.save(savename)
         

@@ -165,7 +165,7 @@ def getmetrics_frompairs(native, predicted):
 
 
 def get_xy(filename, ind, model):
-    x, y = makebatch('testdata/testdata.txt', 1, None, batchindices = [ind])
+    x, y = makebatch(filename, 1, None, batchindices = [ind])
     y = np.squeeze(y)
     yhat = np.triu(np.squeeze(model.predict_on_batch(x)))
     pred = np.rint(yhat)
