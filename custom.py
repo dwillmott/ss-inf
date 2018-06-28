@@ -66,6 +66,19 @@ def plotall(test_y, test_yhat, test_pred, j, name, step):
 
 # COMBINE ALL TEST STEPS
 
+def testonset(testfile, testpath, testsetname, testnames, indices, model, threshold, mfeaccs = None):
+    testfile.write('\n{:15s} test set\n\n'.format(testsetname))
+    if mfeaccs is None:
+        mfeaccs = [None]*len(indices)
+    
+    metrics = []
+    for ind, mfeacc in zip(indices, mfeaccs):
+        metrics.append(test_on_sequence(testfile, testpath, testnames[j], j, model, threshold, mfeacc))
+    
+    writeavgmetrics(testfile, testsetname, metrics)
+        
+    return metrics
+
 def test_on_sequence(testfile, testpath, testname, j, model, threshold, mfeacc = None):
     test_x, test_y, test_yhat, test_pred = get_xy(testpath, j, model)
                 
