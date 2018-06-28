@@ -151,31 +151,34 @@ for i in range(iterations//SPE):
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
         testmetrics = []
         
-        # david set
-        for k, testset in enumerate(testsets[:4]):
-            testfile.write('\n{:15s} test set\n\n'.format(testset))
-            for j in range(k*5, (k+1)*5):
-                testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
+        if dataset == 'strand16s-both':
+            # david set
+            for k, testset in enumerate(testsets[:4]):
+                testfile.write('\n{:15s} test set\n\n'.format(testset))
+                for j in range(k*5, (k+1)*5):
+                    testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
+                
+                writeavgmetrics(testfile, testset, testmetrics[-5:])
             
-            writeavgmetrics(testfile, testset, testmetrics[-5:])
-        
-        writeavgmetrics(testfile, 'david 16s test total', testmetrics)
-        
-        # zs set
-        testfile.write('\n{:15s} test set\n\n'.format('zs'))
-        for j, zsseq in enumerate(zsnames):
-            testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, None))
+            writeavgmetrics(testfile, 'david 16s test total', testmetrics)
             
-        writeavgmetrics(testfile, 'zs total', testmetrics[-16:])
-        
-        writeavgmetrics(testfile, 'total', testmetrics)
+            # zs set
+            testfile.write('\n{:15s} test set\n\n'.format('zs'))
+            for j, zsseq in enumerate(zsnames):
+                testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, None))
+                
+            writeavgmetrics(testfile, 'zs total', testmetrics[-16:])
+            
+            writeavgmetrics(testfile, 'total', testmetrics)
         
         
         # random set
-        #for k in range(50):
-            #testmetrics.append(test_on_sequence(testfile, randompath, str(j), j, model, threshold, None))
-        
-        #writeavgmetrics(testfile, 'random set', testmetrics[-50:])
+        if dataset == 'strand16s-random':
+            testfile.write('\n{:15s} test set\n\n'.format('random'))
+            for j in range(49):
+                testmetrics.append(test_on_sequence(testfile, randompath, str(j+1), j, model, threshold, None))
+            
+            writeavgmetrics(testfile, 'random set', testmetrics[-49:])
         
         testfile.close()
     
