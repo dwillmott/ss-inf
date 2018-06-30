@@ -1,14 +1,14 @@
 import argparse
-import keras
 import numpy as np
-import time
-import sys, os
+import time, sys, os, datetime
 from sklearn.metrics import confusion_matrix
 from matplotlib import colors
 import matplotlib.pyplot as plt
-import keras.backend as k
-import datetime
 
+
+import tensorflow as tf
+import keras
+import keras.backend as k
 from keras.models import Model
 from keras.layers import Input, Dense, LSTM, Lambda, Conv1D, Conv2D, Conv2DTranspose, Activation, Bidirectional, Concatenate, BatchNormalization, TimeDistributed
 from keras.optimizers import RMSprop, Adam
@@ -16,13 +16,13 @@ from keras.regularizers import l2
 
 from makebatches import *
 from custom import *
-import tensorflow as tf
 from arch import *
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--dataset", default = None, type=str, required = True)
 parser.add_argument("--iterations", default = 25000, type = int)
-parser.add_argument("--displaysteps", default = 50, type = int)
+parser.add_argument("--displaysteps", default = 5000, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
@@ -33,9 +33,10 @@ parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--threshold", default=0.5, type=float)
-parser.add_argument("--dataset", type=str)
 args = parser.parse_args()
 
+
+dataset = args.dataset
 iterations = args.iterations
 lr = args.lr
 reg = args.reg
@@ -46,7 +47,6 @@ weightint = args.weight
 BN = args.BN
 threshold = args.threshold
 LSTMlayers = args.LSTMlayers
-dataset = args.dataset
 testpath = 'data/testdata/testdata.txt'
 zspath = 'data/testdata/testset.txt'
 randompath = 'data/testdata/16s-randomtest.txt'
@@ -75,9 +75,9 @@ plt.gray()
 
 
 zsnames = ['cuniculi', 'vnecatrix', 'celegans', 'nidulansM',
-                'TabacumC', 'cryptomonasC', 'musM', 'gallisepticum',
-                'syne', 'ecoli', 'subtilis', 'desulfuricans',
-                'reinhardtiiC', 'maritima', 'tenax', 'volcanii']
+           'TabacumC', 'cryptomonasC', 'musM', 'gallisepticum',
+           'syne', 'ecoli', 'subtilis', 'desulfuricans',
+           'reinhardtiiC', 'maritima', 'tenax', 'volcanii']
 
 zsmfe = [0.171, 0.181, 0.203, 0.272,
          0.323, 0.339, 0.375, 0.385,
@@ -107,26 +107,28 @@ if dataset == 'strand':
                    [0.30, 0.06, 0.51, 0.74, 0.13],
                    [0.85, 0.76, 0.55, 0.29, 0.15]]
 
-    
 if loadmodel:
-    model = keras.models.load_model(savename, custom_objects = {
-            'tf': tf,
-            'weighted_binary_cross_entropy' : weighted_binary_cross_entropy})
-    
     testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-    testfile.write('\n-----\ntest losses, end\n\n')
-    testmetrics = []
-        
-    for k, testset in enumerate(testsets[:4]):
-        
-        testfile.write('\n{:15s} test set\n\n'.format(testset))
-        
-        for j in range(k*5, (k+1)*5):
-            testmetrics.append(test_on_sequence(testfile, testpath, testname[j], j, model, threshold, mfeacc[j]))
-        
-        writeavgmetrics(testfile, testset, testmetrics[-5:])
+    testfile.write('\n-----\ntest losses\n\n')
     
-    writeavgmetrics(testfile, 'total', testmetrics)
+    if dataset == 'strand16s-both':
+        # david set
+        davidsetmetrics = []
+        for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+            subsetmetrics = testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
+            davidsetmetrics += subsetmetrics
+        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+        
+        # zs set
+        zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
+        
+        # write total metrics
+        writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
+    
+    # random set
+    if dataset == 'strand16s-random':
+        testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
+    
     testfile.close()
 
     quit()
@@ -135,6 +137,9 @@ if loadmodel:
 model = makemodel(LSTMlayers, BN, weightint, reg, lr)
 
 print(model.summary())
+
+trainsize = findsize(datapath)
+monitor_indices = np.random.choice(trainsize, trainsize//10, replace=False)
 
 valid_x, valid_y = makebatch(datapath, batchsize, maxlength)
 validlosses = []
@@ -146,6 +151,7 @@ for i in range(iterations//SPE):
     
     totalstep = (i+1)*SPE
     
+    # print & plot validation losses
     validloss = model.evaluate(valid_x, valid_y, verbose = 0)
     validlosses.append(validloss)
     
@@ -158,6 +164,10 @@ for i in range(iterations//SPE):
     validfile.close()
     
     if i % 50 == 0:
+        validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+        testonset(validfile, datapath, 'train set', range(1, (trainsize//10)+1), range(trainsize//10), model, threshold)
+        validfile.close()
+        
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
         
@@ -167,33 +177,17 @@ for i in range(iterations//SPE):
             for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
                 subsetmetrics = testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
                 davidsetmetrics += subsetmetrics
-                #testfile.write('\n{:15s} test set\n\n'.format(testset))
-                #for j in range(k*5, (k+1)*5):
-                    #testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
-                
-                #writeavgmetrics(testfile, testset, testmetrics[-5:])
-            
             writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
             
             # zs set
             zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
-            #testfile.write('\n{:15s} test set\n\n'.format('zs'))
-            #for j, zsseq in enumerate(zsnames):
-                #testmetrics.append(test_on_sequence(testfile, zspath, zsnames[j], j, model, threshold, zsmfe[j]))
-                
-            #writeavgmetrics(testfile, 'zs total', testmetrics[-16:])
             
+            # write total metrics
             writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
-        
         
         # random set
         if dataset == 'strand16s-random':
             testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
-            #testfile.write('\n{:15s} test set\n\n'.format('random'))
-            #for j in range(49):
-                #testmetrics.append(test_on_sequence(testfile, randompath, str(j+1), j, model, threshold, None))
-            
-            #writeavgmetrics(testfile, 'random set', testmetrics[-49:])
         
         testfile.close()
     
