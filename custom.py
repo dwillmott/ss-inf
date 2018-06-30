@@ -66,26 +66,26 @@ def plotall(test_y, test_yhat, test_pred, j, name, step):
 
 # COMBINE ALL TEST STEPS
 
-def testonset(testfile, testpath, testsetname, testnames, indices, model, threshold, mfeaccs = None):
-    testfile.write('\n{:15s} test set\n\n'.format(testsetname))
+def testonset(writefile, testpath, testsetname, testnames, indices, model, threshold, mfeaccs = None):
+    writefile.write('\n{:15s} test set\n\n'.format(testsetname))
     if mfeaccs is None:
         mfeaccs = [None]*len(indices)
     
     metrics = []
-    for ind, mfeacc in zip(indices, mfeaccs):
-        metrics.append(test_on_sequence(testfile, testpath, testnames[j], j, model, threshold, mfeacc))
+    for testname, ind, mfeacc in zip(testnames, indices, mfeaccs):
+        metrics.append(test_on_sequence(writefile, testpath, str(testname), ind, model, threshold, mfeacc))
     
-    writeavgmetrics(testfile, testsetname, metrics)
+    writeavgmetrics(writefile, testsetname, metrics)
         
     return metrics
 
-def test_on_sequence(testfile, testpath, testname, j, model, threshold, mfeacc = None):
+def test_on_sequence(writefile, testpath, testname, j, model, threshold, mfeacc = None):
     test_x, test_y, test_yhat, test_pred = get_xy(testpath, j, model)
                 
     tn, fp, fn, tp = get_confusion(test_y, test_pred)
     ppv, sen, acc = get_metrics(test_y, test_yhat, threshold)
     
-    writeoutputs(testfile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc)
+    writeoutputs(writefile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc)
     
     return ppv, sen, acc
 
@@ -101,20 +101,20 @@ def get_confusion(y, pred):
 
 # WRITING
 
-def writeoutputs(testfile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc = None):
-    testfile.write('{:20s}  '.format(testname))
-    testfile.write('tn: {:7d}  fp: {:7d}  fn: {:3d}  tp: {:3d}  '.format(tn, fp, fn, tp))
-    testfile.write('ppv: {:0.4f}  sen: {:0.4f}  acc: {:0.4f}'.format(ppv, sen, acc))
+def writeoutputs(writefile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc = None):
+    writefile.write('{:20s}  '.format(testname))
+    writefile.write('tn: {:7d}  fp: {:7d}  fn: {:3d}  tp: {:3d}  '.format(tn, fp, fn, tp))
+    writefile.write('ppv: {:0.4f}  sen: {:0.4f}  acc: {:0.4f}'.format(ppv, sen, acc))
     
     if not mfeacc is None:
-        testfile.write('  mfe acc: {:0.4f}{:s}'.format(mfeacc, '  ***'*(acc < mfeacc)))
+        writefile.write('  mfe acc: {:0.4f}{:s}'.format(mfeacc, '  ***'*(acc < mfeacc)))
     
-    testfile.write('\n')
+    writefile.write('\n')
     return
 
-def writeavgmetrics(testfile, testset, metricslist):
+def writeavgmetrics(writefile, setname, metricslist):
     avgppv, avgsen, avgacc = np.mean(metricslist, axis = 0)
-    testfile.write('\n{:15s} avg    ppv:  {:.4f}     sen:  {:.4f}     acc:  {:.4f}\n\n'.format(testset, avgppv, avgsen, avgacc))
+    writefile.write('\n{:15s} avg    ppv:  {:.4f}     sen:  {:.4f}     acc:  {:.4f}\n\n'.format(setname, avgppv, avgsen, avgacc))
     return
 
 

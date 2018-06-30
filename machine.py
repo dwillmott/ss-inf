@@ -49,7 +49,7 @@ LSTMlayers = args.LSTMlayers
 dataset = args.dataset
 testpath = 'data/testdata/testdata.txt'
 zspath = 'data/testdata/testset.txt'
-randompath = 'data/testdata/strand16s-randomtest.txt'
+randompath = 'data/testdata/16s-randomtest.txt'
 
 dataset_dict = {'strand' : 'data/strand/strand-filtered.txt',
                 'strand16s' : 'data/strand/16s-filtered.txt',
@@ -84,23 +84,28 @@ zsmfe = [0.171, 0.181, 0.203, 0.272,
          0.361, 0.411, 0.512, 0.533,
          0.537, 0.562, 0.618, 0.752]
 
-testsets = ['16s_small', '16s_extra', '16s_long', '16s_med', 'rnasep', 'intron', '5s']
+testsets = ['16s_small', '16s_extra', '16s_long', '16s_med']
 
 testsetnames = [['V.ursinus', 'S.aestuans', 'L.catta', 'N.robinsoni', 'A.cahirinus'],
                 ['P.vivax', 'R.carriebowensis', 'O.cuniculus', 'P.falciparum', 'Z.mays'],
                 ['S.griseus', 'M.leprae', 'E.coli', 'C.testosteroni', 'M.hyopneumoniae'],
-                ['V.acridophagus', 'V.corneae', 'E.schubergi', 'V.imperfecta', 'E.cuniculi'],
-                ['H.chlorum', 'T.syrichta', 'P.fluorescens', 'Z.bailii', 'A.ferrooxidans'],
-                ['H.rubra', 'S.anglica', 'B.yamatoana', 'T.thermophila', 'P.thunbergii'],
-                ['S.pombe', 'P.waltl', 'O.sativa', 'M.glyptostroboides', 'M.fossilis']]
+                ['V.acridophagus', 'V.corneae', 'E.schubergi', 'V.imperfecta', 'E.cuniculi']]
 
 mfeaccuracy = [[0.135, 0.34, 0.251, 0.447, 0.20],
                [0.385, 0.338, 0.177, 0.423, 0.258],
                [0.322, 0.179, 0.41, 0.524, 0.639],
-               [0.371, 0.33, 0.23, 0.288, 0.17],
-               [0.32, 0.13, 0.49, 0.68, 0.59],
-               [0.30, 0.06, 0.51, 0.74, 0.13],
-               [0.85, 0.76, 0.55, 0.29, 0.15]]
+               [0.371, 0.33, 0.23, 0.288, 0.17]]
+
+if dataset == 'strand':
+    testsets += ['rnasep', 'intron', '5s']
+
+    testsetnames += [['H.chlorum', 'T.syrichta', 'P.fluorescens', 'Z.bailii', 'A.ferrooxidans'],
+                    ['H.rubra', 'S.anglica', 'B.yamatoana', 'T.thermophila', 'P.thunbergii'],
+                    ['S.pombe', 'P.waltl', 'O.sativa', 'M.glyptostroboides', 'M.fossilis']]
+
+    mfeaccuracy += [[0.32, 0.13, 0.49, 0.68, 0.59],
+                   [0.30, 0.06, 0.51, 0.74, 0.13],
+                   [0.85, 0.76, 0.55, 0.29, 0.15]]
 
     
 if loadmodel:
@@ -152,28 +157,25 @@ for i in range(iterations//SPE):
     printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 50 == 49:
+    if i % 50 == 0:
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
-        testmetrics = []
         
         if dataset == 'strand16s-both':
             # david set
             davidsetmetrics = []
-            for testset, testnames, mfeacc in zip(testsets, testsetnames, mfeaccuracy)[:4]:
-                subsetmetrics = testonset(testfile, testpath, testset, testnames, range(5), model, threshold, mfeacc)
-                davidsetmetrics.append(subsetmetrics)
+            for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+                subsetmetrics = testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
+                davidsetmetrics += subsetmetrics
                 #testfile.write('\n{:15s} test set\n\n'.format(testset))
                 #for j in range(k*5, (k+1)*5):
                     #testmetrics.append(test_on_sequence(testfile, testpath, testsetnames[j], j, model, threshold, mfeaccuracy[j]))
                 
                 #writeavgmetrics(testfile, testset, testmetrics[-5:])
             
-            writeavgmetrics(testfile, 'david 16s test total', testmetrics)
+            writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
             
-            zsmetrics = testonset(testfile, zspath, zsnames, range(16), model, threshold, zsmfe)
             # zs set
-            
             zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
             #testfile.write('\n{:15s} test set\n\n'.format('zs'))
             #for j, zsseq in enumerate(zsnames):
@@ -186,7 +188,7 @@ for i in range(iterations//SPE):
         
         # random set
         if dataset == 'strand16s-random':
-            testonset(testfile, randompath, range(1, 50), range(49), model, threshold, mfeacc = None)
+            testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
             #testfile.write('\n{:15s} test set\n\n'.format('random'))
             #for j in range(49):
                 #testmetrics.append(test_on_sequence(testfile, randompath, str(j+1), j, model, threshold, None))
