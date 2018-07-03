@@ -46,6 +46,7 @@ def plotlosses(losses, validlosses, testlosses, name, stepsize = 1):
         plt.plot(xax, validlosses)
     if testlosses:
         plt.plot(xax, testlosses)
+    plt.ylim(0, 0.02)
     fig.savefig(name)
     plt.close(fig)
     return

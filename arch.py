@@ -83,4 +83,4 @@ def makemodel(LSTMlayers, BN, weight, reg, lr):
     opt = Adam(lr=lr)
     model.compile(optimizer=opt, loss = weighted_binary_cross_entropy)
     
-    return model
+    return model, opt

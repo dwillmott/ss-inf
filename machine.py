@@ -18,10 +18,12 @@ from makebatches import *
 from custom import *
 from arch import *
 
+np.random.seed(32189)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", default = None, type=str, required = True)
-parser.add_argument("--iterations", default = 25000, type = int)
+parser.add_argument("--iterations", default = 20000, type = int)
 parser.add_argument("--displaysteps", default = 5000, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
@@ -33,8 +35,8 @@ parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--threshold", default=0.5, type=float)
+parser.add_argument("--lrdecay", default=False, action='store_true')
 args = parser.parse_args()
-
 
 dataset = args.dataset
 iterations = args.iterations
@@ -47,6 +49,7 @@ weightint = args.weight
 BN = args.BN
 threshold = args.threshold
 LSTMlayers = args.LSTMlayers
+lrdecay = args.lrdecay
 testpath = 'data/testdata/testdata.txt'
 zspath = 'data/testdata/testset.txt'
 randompath = 'data/testdata/16s-randomtest.txt'
@@ -67,6 +70,7 @@ outputtopdir = 'outputs/{:s}_{:02d}_{:02d}'.format(dataset, today.month, today.d
 outputdir = outputtopdir+'/'+idstring+'/'
 savename = 'saved/'+dataset+'/'+idstring+'.hdf5'
 print('\n'+idstring+'\n')
+print(lrdecay)
 
 for path in ['outputs', outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
     if not os.path.exists(path):
@@ -134,7 +138,7 @@ if loadmodel:
     quit()
 
 
-model = makemodel(LSTMlayers, BN, weightint, reg, lr)
+model, opt = makemodel(LSTMlayers, BN, weightint, reg, lr)
 
 print(model.summary())
 
@@ -147,6 +151,7 @@ validlosses = []
 # training loop
 SPE = 100
 for i in range(iterations//SPE):
+    print(K.get_value(model.optimizer.lr))
     model.fit_generator(batch_generator(datapath, batchsize, maxlength), steps_per_epoch = SPE)
     
     totalstep = (i+1)*SPE
@@ -163,7 +168,12 @@ for i in range(iterations//SPE):
     printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     validfile.close()
     
-    if i % 50 == 0:
+    if lrdecay:
+        if i % 20 == 19:
+            newlr = 0.5*K.get_value(model.optimizer.lr)
+            K.set_value(model.optimizer.lr, newlr)
+    
+    if i > 100 and i % 20 == 19:
         validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
         testonset(validfile, datapath, 'train set', range(1, (trainsize//10)+1), range(trainsize//10), model, threshold)
         validfile.close()
@@ -192,4 +202,3 @@ for i in range(iterations//SPE):
         testfile.close()
     
         model.save(savename)
-        
