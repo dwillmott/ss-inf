@@ -53,7 +53,7 @@ def makemodel(LSTMlayers, BN, weight, reg, lr):
     else:
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(inputs)
 
-    h2square_1 = Conv2D(filters=20, kernel_size=15, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
+    h2square_1 = Conv2D(filters=20, kernel_size=13, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_2 = Conv2D(filters=20, kernel_size=9, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_3 = Conv2D(filters=20, kernel_size=5, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_a = Concatenate(axis=-1)([h2square_1, h2square_2, h2square_3])

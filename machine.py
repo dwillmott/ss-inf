@@ -60,11 +60,12 @@ dataset_dict = {'strand' : 'data/strand/strand-filtered.txt',
                 'strand16s-random' : 'data/strand/16s-filtered_random.txt'}
 datapath = dataset_dict[dataset]
 
-idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}'.format(lr, 
+idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}_length={:d}'.format(lr, 
                                                                     reg, 
                                                                     'no'*(not BN),
                                                                     LSTMlayers, 
-                                                                    weightint)
+                                                                    weightint,
+                                                                    maxlength)
 today = datetime.datetime.today()
 outputtopdir = 'outputs/{:s}_{:02d}_{:02d}'.format(dataset, today.month, today.day)
 outputdir = outputtopdir+'/'+idstring+'/'
@@ -169,11 +170,11 @@ for i in range(iterations//SPE):
     validfile.close()
     
     if lrdecay:
-        if i % 20 == 19:
+        if i % 25 == 24:
             newlr = 0.5*K.get_value(model.optimizer.lr)
             K.set_value(model.optimizer.lr, newlr)
     
-    if i > 100 and i % 20 == 19:
+    if i > 75 and i % 25 == 24:
         validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
         testonset(validfile, datapath, 'train set', range(1, (trainsize//10)+1), range(trainsize//10), model, threshold)
         validfile.close()
@@ -185,8 +186,7 @@ for i in range(iterations//SPE):
             # david set
             davidsetmetrics = []
             for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-                subsetmetrics = testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-                davidsetmetrics += subsetmetrics
+                davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
             writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
             
             # zs set
