@@ -29,7 +29,7 @@ parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
 parser.add_argument('--LSTMlayers', default = 0, type = int)
-parser.add_argument("--weight", default = 1, type = int)
+parser.add_argument("--weight", default = 5, type = int)
 parser.add_argument("--reg", default = 0.00001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.0001, type=float)
@@ -56,7 +56,7 @@ randompath = 'data/testdata/16s-randomtest.txt'
 
 dataset_dict = {'strand' : 'data/strand/strand-filtered.txt',
                 'strand16s' : 'data/strand/16s-filtered.txt',
-                'strand16s-both' : 'data/strand/16s-filtered_both.txt',
+                'strand16s-both' : 'data/strand/16s-finaltrain.txt',
                 'strand16s-random' : 'data/strand/16s-filtered_random.txt'}
 datapath = dataset_dict[dataset]
 
@@ -71,11 +71,11 @@ outputtopdir = 'outputs/{:s}_{:02d}_{:02d}'.format(dataset, today.month, today.d
 outputdir = outputtopdir+'/'+idstring+'/'
 savename = 'saved/'+dataset+'/'+idstring+'.hdf5'
 print('\n'+idstring+'\n')
-print(lrdecay)
 
 for path in ['outputs', outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
     if not os.path.exists(path):
         os.makedirs(path)
+
 plt.gray()
 
 
@@ -112,7 +112,13 @@ if dataset == 'strand':
                    [0.30, 0.06, 0.51, 0.74, 0.13],
                    [0.85, 0.76, 0.55, 0.29, 0.15]]
 
+print(testsets)
+
 if loadmodel:
+    model = keras.models.load_model(savename, custom_objects = {
+            'tf': tf,
+            'weighted_binary_cross_entropy' : weighted_binary_cross_entropy})
+    
     testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
     testfile.write('\n-----\ntest losses\n\n')
     
@@ -144,15 +150,16 @@ model, opt = makemodel(LSTMlayers, BN, weightint, reg, lr)
 print(model.summary())
 
 trainsize = findsize(datapath)
-monitor_indices = np.random.choice(trainsize, trainsize//10, replace=False)
+monitor_indices = np.random.choice(trainsize, trainsize//20, replace=False)
 
 valid_x, valid_y = makebatch(datapath, batchsize, maxlength)
 validlosses = []
 
+validpath = 'data/strand/16s-finalvalid.txt'
+
 # training loop
 SPE = 100
 for i in range(iterations//SPE):
-    print(K.get_value(model.optimizer.lr))
     model.fit_generator(batch_generator(datapath, batchsize, maxlength), steps_per_epoch = SPE)
     
     totalstep = (i+1)*SPE
@@ -160,44 +167,48 @@ for i in range(iterations//SPE):
     # print & plot validation losses
     validloss = model.evaluate(valid_x, valid_y, verbose = 0)
     validlosses.append(validloss)
-    
-    valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
-    valid_preds = np.rint(valid_yhat)
     plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', stepsize = SPE)
     
-    validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-    printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
-    validfile.close()
+    #valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
+    #valid_preds = np.rint(valid_yhat)
+    #validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+    #printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
+    #validfile.close()
     
     if lrdecay:
         if i % 25 == 24:
             newlr = 0.5*K.get_value(model.optimizer.lr)
             K.set_value(model.optimizer.lr, newlr)
+            print('new lr: {0:f}'.format(newlr))
     
     if i > 75 and i % 25 == 24:
-        validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-        testonset(validfile, datapath, 'train set', range(1, (trainsize//10)+1), range(trainsize//10), model, threshold)
-        validfile.close()
+        trainfile = open(outputdir+'trainlosses_'+idstring+'.txt', 'a+')
+        trainmetrics = testonset(trainfile, datapath, 'train set', range(1, (trainsize//20)+1), monitor_indices, model, threshold)
+        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+        trainfile.close()
+        
+        #validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+        #testonset(validfile, validpath, 'validation set', range(1, 37), range(36), model, threshold)
+        #validfile.close()
         
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-        testfile.write('\n-----\ntest losses, iter {:d}\n\n'.format(totalstep))
+        testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))
         
-        if dataset == 'strand16s-both':
-            # david set
-            davidsetmetrics = []
-            for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-                davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-            writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
-            
-            # zs set
-            zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
-            
-            # write total metrics
-            writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
+        # david set
+        davidsetmetrics = []
+        for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+            davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
+        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+        
+        # zs set
+        zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
+        
+        # write total metrics
+        writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
         
         # random set
-        if dataset == 'strand16s-random':
-            testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
+        #if dataset == 'strand16s-random':
+            #testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
         
         testfile.close()
     
