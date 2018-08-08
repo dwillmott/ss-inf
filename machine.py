@@ -28,14 +28,14 @@ parser.add_argument("--displaysteps", default = 5000, type = int)
 parser.add_argument("--batchsize", default = 10, type = int)
 parser.add_argument("--maxlength", default = 500, type = int) # None = no max length
 parser.add_argument('--noBN', dest='BN', default=True, action='store_false')
-parser.add_argument('--LSTMlayers', default = 0, type = int)
+parser.add_argument('--LSTMlayers', default = 1, type = int)
 parser.add_argument("--weight", default = 5, type = int)
 parser.add_argument("--reg", default = 0.00001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
-parser.add_argument("--lr", default= 0.0001, type=float)
+parser.add_argument("--lr", default= 0.001, type=float)
 parser.add_argument("--load", default=False, type = bool)
 parser.add_argument("--threshold", default=0.5, type=float)
-parser.add_argument("--lrdecay", default=False, action='store_true')
+parser.add_argument("--lrdecay", default=True, action='store_false')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -184,12 +184,12 @@ for i in range(iterations//SPE):
     if i > 75 and i % 25 == 24:
         trainfile = open(outputdir+'trainlosses_'+idstring+'.txt', 'a+')
         trainmetrics = testonset(trainfile, datapath, 'train set', range(1, (trainsize//20)+1), monitor_indices, model, threshold)
-        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+        writeavgmetrics(trainfile, 'training set total', trainmetrics)
         trainfile.close()
         
-        #validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-        #testonset(validfile, validpath, 'validation set', range(1, 37), range(36), model, threshold)
-        #validfile.close()
+        validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+        testonset(validfile, validpath, 'validation set', range(1, 37), range(36), model, threshold)
+        validfile.close()
         
         testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
         testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))

@@ -47,7 +47,7 @@ def makemodel(LSTMlayers, BN, weight, reg, lr):
         h1_lstm = Bidirectional(LSTM(75, return_sequences = True))(inputs)
         if LSTMlayers > 1:
             h1_lstm = Bidirectional(LSTM(50, return_sequences = True))(h1_lstm)
-        h1_lstmout = TimeDistributed(Dense(20))(h1_lstm)
+        h1_lstmout = TimeDistributed(Dense(15))(h1_lstm)
         h1 = Concatenate(axis=-1)([inputs, h1_lstmout])
         h1square = Lambda(SelfCartesian, output_shape = SelfCartesianShape)(h1)
     else:
@@ -55,7 +55,7 @@ def makemodel(LSTMlayers, BN, weight, reg, lr):
 
     h2square_1 = Conv2D(filters=20, kernel_size=13, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_2 = Conv2D(filters=20, kernel_size=9, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
-    h2square_3 = Conv2D(filters=20, kernel_size=5, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
+    h2square_3 = Conv2D(filters=10, kernel_size=5, use_bias=False, kernel_regularizer = l2reg, padding='same')(h1square)
     h2square_a = Concatenate(axis=-1)([h2square_1, h2square_2, h2square_3])
     if BN:
         h2square_b = BatchNormalization(axis=-1)(h2square_a)

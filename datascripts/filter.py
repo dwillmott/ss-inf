@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 # slide one sequence along another, return largest number of matches
 def strmatches(a, b):
@@ -55,42 +56,81 @@ def filtersequences(sequences, testsequences):
     
     return outsequences
 
-trainpath = 'strand/rnasep.txt'
-testpath = 'testdata/testdata.txt'
-outpath = 'strand/rnasep-filtered.txt'
+#trainpath = 'strand/rnasep.txt'
+#testpath = 'testdata/testdata.txt'
+#outpath = 'strand/rnasep-filtered.txt'
+
+#trainfile = open(trainpath, 'r')
+#testfile = open(testpath, 'r')
+
+#trainsequences = []
+#for i, line in enumerate(trainfile):
+    #if i % 5 == 1:
+        #trainsequences.append(line.rstrip().split(' '))
+
+#trainfile.close()
+        
+#testsequences = []
+#for i, line in enumerate(testfile):
+    #if i % 5 == 1:
+        #testsequences.append(line.rstrip().split(' '))
+        
+#testfile.close()
+
+#print(len(trainsequences), len(testsequences))
+
+#filteredindices = filtersequences(trainsequences, testsequences)
+
+#print(len(filteredindices))
+
+#outfile = open(outpath, 'w')
+
+#trainfile = open(trainpath, 'r')
+
+#for i in range(len(trainsequences)):
+    #for j in range(5):
+            #line = trainfile.readline()
+            #if i not in filteredindices:
+                #outfile.write(line)
+
+#trainfile.close()
+#outfile.close()
+
+
+
+trainpath = 'data/strand/16s-finalvalid.txt'
+
+#trainpath = 'strand/rnasep.txt'
+#testpath = 'testdata/testdata.txt'
+#outpath = 'strand/rnasep-filtered.txt'
+
+#trainout = open('data/strand/16s-finaltrain.txt', 'w')
+#validout = open('data/strand/16s-finalvalid.txt', 'w')
 
 trainfile = open(trainpath, 'r')
-testfile = open(testpath, 'r')
+#testfile = open(testpath, 'r')
 
 trainsequences = []
 for i, line in enumerate(trainfile):
     if i % 5 == 1:
         trainsequences.append(line.rstrip().split(' '))
 
-trainfile.close()
-        
-testsequences = []
-for i, line in enumerate(testfile):
-    if i % 5 == 1:
-        testsequences.append(line.rstrip().split(' '))
-        
-testfile.close()
+print(len(trainsequences))
 
-print(len(trainsequences), len(testsequences))
+#validind = np.random.choice(578, 36, replace=False)
 
-filteredindices = filtersequences(trainsequences, testsequences)
+#trainfile = open(trainpath, 'r')
+#for i in range(578):
+    #if i in validind:
+        #for j in range(5):
+            #line = trainfile.readline()
+            #validout.write(line)
+    #else:
+        #for j in range(5):
+            #line = trainfile.readline()
+            #print(line)
+            #trainout.write(line)
 
-print(len(filteredindices))
-
-outfile = open(outpath, 'w')
-
-trainfile = open(trainpath, 'r')
-
-for i in range(len(trainsequences)):
-    for j in range(5):
-            line = trainfile.readline()
-            if i not in filteredindices:
-                outfile.write(line)
-
-trainfile.close()
-outfile.close()
+#trainout.close()
+#validout.close()
+#trainfile.close()
