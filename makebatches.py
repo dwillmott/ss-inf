@@ -50,7 +50,7 @@ def findsize(datafile):
         pass
     f.close()
     
-    return int((i+1)/5)
+    return (i+1)//5
 
 
 def makebatch(datafile, batchsize, sublength, batchindices = None, totalsize = None):

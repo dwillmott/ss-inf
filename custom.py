@@ -80,9 +80,10 @@ def testonset(writefile, testpath, testsetname, testnames, indices, model, thres
         
     return metrics
 
-def test_on_sequence(writefile, testpath, testname, j, model, threshold, mfeacc = None):
-    test_x, test_y, test_yhat, test_pred = get_xy(testpath, j, model)
-                
+
+def test_on_sequence(writefile, testpath, testname, ind, model, threshold, mfeacc = None):
+    test_x, test_y, test_yhat, test_pred = get_xy(testpath, ind, model)
+    
     tn, fp, fn, tp = get_confusion(test_y, test_pred)
     ppv, sen, acc = get_metrics(test_y, test_yhat, threshold)
     
@@ -103,12 +104,13 @@ def get_confusion(y, pred):
 # WRITING
 
 def writeoutputs(writefile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc = None):
-    writefile.write('{:20s}  '.format(testname))
-    writefile.write('tn: {:7d}  fp: {:7d}  fn: {:3d}  tp: {:3d}  '.format(tn, fp, fn, tp))
-    writefile.write('ppv: {:0.4f}  sen: {:0.4f}  acc: {:0.4f}'.format(ppv, sen, acc))
+    writefile.write('{:20s} '.format(testname))
+    writefile.write('tn: {:7d}  fp: {:7d}  fn: {:3d}  tp: {:3d}'.format(tn, fp, fn, tp))
+    writefile.write(' ppv: {:0.3f}  sen: {:0.3f} ||'.format(tp/(tp+fp), tp/(tp+fn)))
+    writefile.write(' ppv: {:0.3f}  sen: {:0.3f}  acc: {:0.3f}'.format(ppv, sen, acc))
     
     if not mfeacc is None:
-        writefile.write('  mfe acc: {:0.4f}{:s}'.format(mfeacc, '  ***'*(acc < mfeacc)))
+        writefile.write('  mfe acc: {:0.3f}{:s}'.format(mfeacc, '  ***'*(acc < mfeacc)))
     
     writefile.write('\n')
     return
@@ -118,21 +120,6 @@ def writeavgmetrics(writefile, setname, metricslist):
     writefile.write('\n{:15s} avg    ppv:  {:.4f}     sen:  {:.4f}     acc:  {:.4f}\n\n'.format(setname, avgppv, avgsen, avgacc))
     return
 
-
-def printoutputs(batch_y, batch_preds, step, loss, validfile):
-    
-    uppertri = np.triu_indices(batch_y.shape[1])
-    
-    confs = np.stack([confusion_matrix(y[uppertri].flatten(),
-                                       pred[uppertri].flatten(),
-                                       labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
-    
-    tn, fp, fn, tp = np.sum(confs, axis=0)
-    printstring = '{:5d}  {:5.5f}     tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(step, loss, tn, fp, fn, tp)
-    print(printstring)
-    validfile.write(printstring+'\n')
-    
-    return
 
 # PPV, SEN, ACC FUNCTIONS
 
@@ -186,6 +173,25 @@ def get_xy(filename, ind, model):
     
     return x, y, yhat, pred
 
+
+#  ---- NOT CURRENTLY USED ----
+
+# PRINT SAMPLE TRAINING BATCH METRICS
+
+def printoutputs(batch_y, batch_preds, step, loss, validfile):
+    
+    uppertri = np.triu_indices(batch_y.shape[1])
+    
+    confs = np.stack([confusion_matrix(y[uppertri].flatten(),
+                                       pred[uppertri].flatten(),
+                                       labels=[0,1]).ravel() for y, pred in zip(batch_y, batch_preds)])
+    
+    tn, fp, fn, tp = np.sum(confs, axis=0)
+    printstring = '{:5d}  {:5.5f}     tn: {:7d}   fp: {:7d}   fn: {:4d}   tp: {:4d}'.format(step, loss, tn, fp, fn, tp)
+    print(printstring)
+    validfile.write(printstring+'\n')
+    
+    return
 
 # CANONICAL BASE PAIRS
 

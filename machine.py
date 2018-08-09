@@ -54,11 +54,12 @@ testpath = 'data/testdata/testdata.txt'
 zspath = 'data/testdata/testset.txt'
 randompath = 'data/testdata/16s-randomtest.txt'
 
-dataset_dict = {'strand' : 'data/strand/strand-filtered.txt',
-                'strand16s' : 'data/strand/16s-filtered.txt',
-                'strand16s-both' : 'data/strand/16s-finaltrain.txt',
-                'strand16s-random' : 'data/strand/16s-filtered_random.txt'}
-datapath = dataset_dict[dataset]
+trainset_dict = {'strand' : 'data/strand/rnatrain.txt',
+                'strand16s' : 'data/strand/16s-finaltrain.txt'}
+validset_dict = {'strand' : 'data/strand/rnavalid.txt',
+                'strand16s' : 'data/strand/16s-finalvalid.txt'}
+trainpath = trainset_dict[dataset]
+validpath = validset_dict[dataset]
 
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}_length={:d}'.format(lr, 
                                                                     reg, 
@@ -122,23 +123,17 @@ if loadmodel:
     testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
     testfile.write('\n-----\ntest losses\n\n')
     
-    if dataset == 'strand16s-both':
-        # david set
-        davidsetmetrics = []
-        for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-            subsetmetrics = testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-            davidsetmetrics += subsetmetrics
-        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
-        
-        # zs set
-        zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
-        
-        # write total metrics
-        writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
+    # david set
+    davidsetmetrics = []
+    for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+        davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
+    writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
     
-    # random set
-    if dataset == 'strand16s-random':
-        testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
+    # zs set
+    zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
+    
+    # write total test set metrics
+    writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
     
     testfile.close()
 
@@ -149,25 +144,25 @@ model, opt = makemodel(LSTMlayers, BN, weightint, reg, lr)
 
 print(model.summary())
 
-trainsize = findsize(datapath)
+trainsize = findsize(trainpath)
+validsize = findsize(validpath)
 monitor_indices = np.random.choice(trainsize, trainsize//20, replace=False)
 
-valid_x, valid_y = makebatch(datapath, batchsize, maxlength)
-validlosses = []
 
-validpath = 'data/strand/16s-finalvalid.txt'
+sample_x, sample_y = makebatch(trainpath, batchsize, maxlength)
+sample_losses = []
 
 # training loop
 SPE = 100
 for i in range(iterations//SPE):
-    model.fit_generator(batch_generator(datapath, batchsize, maxlength), steps_per_epoch = SPE)
+    model.fit_generator(batch_generator(trainpath, batchsize, maxlength), steps_per_epoch = SPE)
     
     totalstep = (i+1)*SPE
     
-    # print & plot validation losses
-    validloss = model.evaluate(valid_x, valid_y, verbose = 0)
-    validlosses.append(validloss)
-    plotlosses(validlosses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', stepsize = SPE)
+    # print & plot sample batch losses
+    sample_loss = model.evaluate(sample_x, sample_y, verbose = 0)
+    sample_losses.append(sample_loss)
+    plotlosses(sample_losses, validlosses = None, testlosses = None, name = outputdir+'losses_'+idstring+'.png', stepsize = SPE)
     
     #valid_yhat = np.squeeze(model.predict_on_batch(valid_x))
     #valid_preds = np.rint(valid_yhat)
@@ -175,41 +170,43 @@ for i in range(iterations//SPE):
     #printoutputs(valid_y, valid_preds, totalstep, validloss, validfile)
     #validfile.close()
     
-    if lrdecay:
-        if i % 25 == 24:
+    
+    if i % 25 == 24:
+        # save model
+        model.save(savename)
+        
+        #decay lr
+        if lrdecay:
             newlr = 0.5*K.get_value(model.optimizer.lr)
             K.set_value(model.optimizer.lr, newlr)
             print('new lr: {0:f}'.format(newlr))
+        
+        # test everything
+        if i > 75:
+            trainfile = open(outputdir+'trainlosses_'+idstring+'.txt', 'a+')
+            trainmetrics = testonset(trainfile, trainpath, 'training set', range(1, (trainsize//20)+1), monitor_indices, model, threshold)
+            trainfile.close()
+            
+            validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
+            testonset(validfile, validpath, 'validation set', range(1, validsize+1), range(validsize), model, threshold)
+            validfile.close()
+            
+            # test sets
+            testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
+            testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))
+            
+            # david set
+            davidsetmetrics = []
+            for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+                davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
+            writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+            
+            # zs set
+            zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
+            
+            # write total test set metrics
+            writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
+            
+            testfile.close()
     
-    if i > 75 and i % 25 == 24:
-        trainfile = open(outputdir+'trainlosses_'+idstring+'.txt', 'a+')
-        trainmetrics = testonset(trainfile, datapath, 'train set', range(1, (trainsize//20)+1), monitor_indices, model, threshold)
-        writeavgmetrics(trainfile, 'training set total', trainmetrics)
-        trainfile.close()
         
-        validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-        testonset(validfile, validpath, 'validation set', range(1, 37), range(36), model, threshold)
-        validfile.close()
-        
-        testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-        testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))
-        
-        # david set
-        davidsetmetrics = []
-        for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-            davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-        writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
-        
-        # zs set
-        zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
-        
-        # write total metrics
-        writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
-        
-        # random set
-        #if dataset == 'strand16s-random':
-            #testonset(testfile, randompath, 'random', range(1, 50), range(49), model, threshold, mfeaccs = None)
-        
-        testfile.close()
-    
-        model.save(savename)
