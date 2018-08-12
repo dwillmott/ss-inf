@@ -17,6 +17,7 @@ from keras.regularizers import l2
 from makebatches import *
 from custom import *
 from arch import *
+from datanames import *
 
 np.random.seed(32189)
 
@@ -38,6 +39,7 @@ parser.add_argument("--threshold", default=0.5, type=float)
 parser.add_argument("--lrdecay", default=True, action='store_false')
 args = parser.parse_args()
 
+
 dataset = args.dataset
 iterations = args.iterations
 lr = args.lr
@@ -50,16 +52,7 @@ BN = args.BN
 threshold = args.threshold
 LSTMlayers = args.LSTMlayers
 lrdecay = args.lrdecay
-testpath = 'data/testdata/testdata.txt'
-zspath = 'data/testdata/testset.txt'
-randompath = 'data/testdata/16s-randomtest.txt'
 
-trainset_dict = {'strand' : 'data/strand/rnatrain.txt',
-                'strand16s' : 'data/strand/16s-finaltrain.txt'}
-validset_dict = {'strand' : 'data/strand/rnavalid.txt',
-                'strand16s' : 'data/strand/16s-finalvalid.txt'}
-trainpath = trainset_dict[dataset]
-validpath = validset_dict[dataset]
 
 idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}_length={:d}'.format(lr, 
                                                                     reg, 
@@ -70,50 +63,25 @@ idstring = 'lr={:.0e}_reg={:.0e}_{:s}BN_LSTMlayers={:d}_weight={:d}_length={:d}'
 today = datetime.datetime.today()
 outputtopdir = 'outputs/{:s}_{:02d}_{:02d}'.format(dataset, today.month, today.day)
 outputdir = outputtopdir+'/'+idstring+'/'
-savename = 'saved/'+dataset+'/'+idstring+'.hdf5'
-print('\n'+idstring+'\n')
+savename = 'saved/'+dataset+'/'+idstring
+
+pathdict = {'strand' : ('data/strand/rnatrain.txt', 'data/strand/rnavalid.txt'),
+            'strand16s' : ('data/strand/16s-finaltrain.txt', 'data/strand/16s-finalvalid.txt')}
+trainpath, validpath = pathdict[dataset]
+testpath = 'data/testdata/testdata.txt'
+zspath = 'data/testdata/testset.txt'
+writepath_train = outputdir+'trainlosses_'+idstring+'.txt'
+writepath_valid = outputdir+'validlosses_'+idstring+'.txt'
+writepath_test = outputdir+'testlosses_'+idstring+'.txt'
 
 for path in ['outputs', outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
     if not os.path.exists(path):
         os.makedirs(path)
 
-plt.gray()
+#plt.gray()
+zsnames, zsmfe, testsets, testsetnames, mfeaccuracy = getdatanames(dataset)
+print(idstring+'    ', testsets)
 
-
-zsnames = ['cuniculi', 'vnecatrix', 'celegans', 'nidulansM',
-           'TabacumC', 'cryptomonasC', 'musM', 'gallisepticum',
-           'syne', 'ecoli', 'subtilis', 'desulfuricans',
-           'reinhardtiiC', 'maritima', 'tenax', 'volcanii']
-
-zsmfe = [0.171, 0.181, 0.203, 0.272,
-         0.323, 0.339, 0.375, 0.385,
-         0.361, 0.411, 0.512, 0.533,
-         0.537, 0.562, 0.618, 0.752]
-
-testsets = ['16s_small', '16s_extra', '16s_long', '16s_med']
-
-testsetnames = [['V.ursinus', 'S.aestuans', 'L.catta', 'N.robinsoni', 'A.cahirinus'],
-                ['P.vivax', 'R.carriebowensis', 'O.cuniculus', 'P.falciparum', 'Z.mays'],
-                ['S.griseus', 'M.leprae', 'E.coli', 'C.testosteroni', 'M.hyopneumoniae'],
-                ['V.acridophagus', 'V.corneae', 'E.schubergi', 'V.imperfecta', 'E.cuniculi']]
-
-mfeaccuracy = [[0.135, 0.34, 0.251, 0.447, 0.20],
-               [0.385, 0.338, 0.177, 0.423, 0.258],
-               [0.322, 0.179, 0.41, 0.524, 0.639],
-               [0.371, 0.33, 0.23, 0.288, 0.17]]
-
-if dataset == 'strand':
-    testsets += ['rnasep', 'intron', '5s']
-
-    testsetnames += [['H.chlorum', 'T.syrichta', 'P.fluorescens', 'Z.bailii', 'A.ferrooxidans'],
-                    ['H.rubra', 'S.anglica', 'B.yamatoana', 'T.thermophila', 'P.thunbergii'],
-                    ['S.pombe', 'P.waltl', 'O.sativa', 'M.glyptostroboides', 'M.fossilis']]
-
-    mfeaccuracy += [[0.32, 0.13, 0.49, 0.68, 0.59],
-                   [0.30, 0.06, 0.51, 0.74, 0.13],
-                   [0.85, 0.76, 0.55, 0.29, 0.15]]
-
-print(testsets)
 
 if loadmodel:
     model = keras.models.load_model(savename, custom_objects = {
@@ -148,14 +116,14 @@ trainsize = findsize(trainpath)
 validsize = findsize(validpath)
 monitor_indices = np.random.choice(trainsize, trainsize//20, replace=False)
 
-
 sample_x, sample_y = makebatch(trainpath, batchsize, maxlength)
 sample_losses = []
 
 # training loop
 SPE = 100
 for i in range(iterations//SPE):
-    model.fit_generator(batch_generator(trainpath, batchsize, maxlength), steps_per_epoch = SPE)
+    batchgen = batch_generator(trainpath, batchsize, maxlength)
+    model.fit_generator(batchgen, steps_per_epoch = SPE)
     
     totalstep = (i+1)*SPE
     
@@ -173,7 +141,7 @@ for i in range(iterations//SPE):
     
     if i % 25 == 24:
         # save model
-        model.save(savename)
+        model.save(savename+'_iter-{:05d}'.format(totalstep)+'.hdf5')
         
         #decay lr
         if lrdecay:
@@ -183,30 +151,25 @@ for i in range(iterations//SPE):
         
         # test everything
         if i > 75:
-            trainfile = open(outputdir+'trainlosses_'+idstring+'.txt', 'a+')
-            trainmetrics = testonset(trainfile, trainpath, 'training set', range(1, (trainsize//20)+1), monitor_indices, model, threshold)
-            trainfile.close()
+            # get training, validation accuracy
+            #trainmetrics = testonset(model, trainpath, writepath_train, monitor_indices, 'training set')
+            #validmetrics = testonset(model, validpath, writepath_valid, range(validsize), 'validation set')
             
-            validfile = open(outputdir+'validlosses_'+idstring+'.txt', 'a+')
-            testonset(validfile, validpath, 'validation set', range(1, validsize+1), range(validsize), model, threshold)
-            validfile.close()
             
             # test sets
-            testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
+            testfile = open(writepath_test, 'a+')
             testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))
+            testfile.close()
             
             # david set
             davidsetmetrics = []
             for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-                davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-            writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+                davidsetmetrics += testonset(model, testpath, writepath_test, range(k*5, (k+1)*5), testset, testnames, mfeaccs = mfeacc)
+            writeavgmetrics(writepath_test, 'david 16s test total', davidsetmetrics)
             
             # zs set
-            zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
+            zsmetrics = testonset(model, zspath, writepath_test, range(16), 'zs', mfeaccs = zsmfe)
             
             # write total test set metrics
-            writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
+            writeavgmetrics(writepath_test, 'total', davidsetmetrics + zsmetrics)
             
-            testfile.close()
-    
-        

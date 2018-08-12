@@ -67,7 +67,15 @@ def plotall(test_y, test_yhat, test_pred, j, name, step):
 
 # COMBINE ALL TEST STEPS
 
-def testonset(writefile, testpath, testsetname, testnames, indices, model, threshold, mfeaccs = None):
+def testonset(model, testpath, writepath, indices = None, testsetname = '', testnames = None, threshold = 0.5, mfeaccs = None):
+    
+    if indices is None:
+        indices = range(findsize(testpath))
+    
+    if testnames is None:
+        testnames = [str(d) for d in range(1, len(indices)+1)]
+    
+    writefile = open(writepath, 'a+')
     writefile.write('\n{:15s} test set\n\n'.format(testsetname))
     if mfeaccs is None:
         mfeaccs = [None]*len(indices)
@@ -76,7 +84,10 @@ def testonset(writefile, testpath, testsetname, testnames, indices, model, thres
     for testname, ind, mfeacc in zip(testnames, indices, mfeaccs):
         metrics.append(test_on_sequence(writefile, testpath, str(testname), ind, model, threshold, mfeacc))
     
-    writeavgmetrics(writefile, testsetname, metrics)
+    avgppv, avgsen, avgacc = np.mean(metrics, axis = 0)
+    writefile.write('\n{:15s} avg    ppv:  {:.4f}     sen:  {:.4f}     acc:  {:.4f}\n\n'.format(testname, avgppv, avgsen, avgacc))
+    
+    writefile.close()
         
     return metrics
 
@@ -115,16 +126,17 @@ def writeoutputs(writefile, testname, tn, fp, fn, tp, ppv, sen, acc, mfeacc = No
     writefile.write('\n')
     return
 
-def writeavgmetrics(writefile, setname, metricslist):
+def writeavgmetrics(writepath, setname, metricslist):
+    writefile = open(writepath, 'a+')
     avgppv, avgsen, avgacc = np.mean(metricslist, axis = 0)
     writefile.write('\n{:15s} avg    ppv:  {:.4f}     sen:  {:.4f}     acc:  {:.4f}\n\n'.format(setname, avgppv, avgsen, avgacc))
+    writefile.close()
     return
 
 
 # PPV, SEN, ACC FUNCTIONS
 
 def get_metrics(y, yhat, threshold = 0.5):
-    
     truepairs = makepairs(y, threshold)
     predpairs = makepairs(np.triu(yhat), threshold)
     metrics = getmetrics_frompairs(set(truepairs), set(predpairs))
