@@ -1,3 +1,4 @@
+
 import argparse
 import numpy as np
 import time, sys, os, datetime
@@ -34,7 +35,7 @@ parser.add_argument("--weight", default = 5, type = int)
 parser.add_argument("--reg", default = 0.00001, type = float)
 parser.add_argument("--regtype", default = 'l2', type = str)
 parser.add_argument("--lr", default= 0.001, type=float)
-parser.add_argument("--load", default=False, type = bool)
+parser.add_argument("--load", default=False, action='store_true')
 parser.add_argument("--threshold", default=0.5, type=float)
 parser.add_argument("--lrdecay", default=True, action='store_false')
 args = parser.parse_args()
@@ -74,36 +75,48 @@ writepath_train = outputdir+'trainlosses_'+idstring+'.txt'
 writepath_valid = outputdir+'validlosses_'+idstring+'.txt'
 writepath_test = outputdir+'testlosses_'+idstring+'.txt'
 
+trainsize = findsize(trainpath)
+validsize = findsize(validpath)
+monitor_indices = np.random.choice(trainsize, trainsize//20, replace=False)
+
 for path in ['outputs', outputtopdir, outputdir, 'saved', 'saved/'+dataset]:
     if not os.path.exists(path):
         os.makedirs(path)
 
 #plt.gray()
 zsnames, zsmfe, testsets, testsetnames, mfeaccuracy = getdatanames(dataset)
-print(idstring+'    ', testsets)
+print(idstring+'   ', testsets)
 
 
 if loadmodel:
-    model = keras.models.load_model(savename, custom_objects = {
+    loadname = 'saved/strand16s/lr=1e-03_reg=1e-05_BN_LSTMlayers=1_weight=5_length=500_iter-20000.hdf5'
+    model = keras.models.load_model(loadname, custom_objects = {
             'tf': tf,
             'weighted_binary_cross_entropy' : weighted_binary_cross_entropy})
     
-    testfile = open(outputdir+'testlosses_'+idstring+'.txt', 'a+')
-    testfile.write('\n-----\ntest losses\n\n')
+    # get training, validation accuracy
+    #trainmetrics = testonset(model, trainpath, writepath_train, monitor_indices, 'training set')
+    #validmetrics = testonset(model, validpath, writepath_valid, range(validsize), 'validation set')
     
-    # david set
-    davidsetmetrics = []
-    for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
-        davidsetmetrics += testonset(testfile, testpath, testset, testnames, range(k*5, (k+1)*5), model, threshold, mfeacc)
-    writeavgmetrics(testfile, 'david 16s test total', davidsetmetrics)
+    totalstep = 20000
+    
+    # test sets
+    #testfile = open(writepath_test, 'a+')
+    #testfile.write('\n-----\ntest losses, iter {0:d}\n\n'.format(totalstep))
+    #testfile.close()
+    
+    ## david set
+    #davidsetmetrics = []
+    #for k, (testset, testnames, mfeacc) in enumerate(zip(testsets, testsetnames, mfeaccuracy)):
+        #davidsetmetrics += testonset(model, testpath, writepath_test, range(k*5, (k+1)*5), testset, testnames, mfeaccs = mfeacc)
+    #writeavgmetrics(writepath_test, 'david 16s test total', davidsetmetrics)
     
     # zs set
-    zsmetrics = testonset(testfile, zspath, 'zs', zsnames, range(16), model, threshold, zsmfe)
-    
+    for thr in [0.999]:
+        z = testonset(model, zspath, writepath_test, indices = [0], testsetname = 'sz', testnames = ['cuniculi_' + str(thr)], mfeaccs = [zsmfe[0]], threshold = thr)
+        print('{:.2f} {:.3f} {:.3f}'.format(thr, z[0][0], z[0][1]))
     # write total test set metrics
-    writeavgmetrics(testfile, 'total', davidsetmetrics + zsmetrics)
-    
-    testfile.close()
+    #writeavgmetrics(writepath_test, 'total', davidsetmetrics + zsmetrics)
 
     quit()
 
@@ -112,9 +125,6 @@ model, opt = makemodel(LSTMlayers, BN, weightint, reg, lr)
 
 print(model.summary())
 
-trainsize = findsize(trainpath)
-validsize = findsize(validpath)
-monitor_indices = np.random.choice(trainsize, trainsize//20, replace=False)
 
 sample_x, sample_y = makebatch(trainpath, batchsize, maxlength)
 sample_losses = []
@@ -152,8 +162,8 @@ for i in range(iterations//SPE):
         # test everything
         if i > 75:
             # get training, validation accuracy
-            #trainmetrics = testonset(model, trainpath, writepath_train, monitor_indices, 'training set')
-            #validmetrics = testonset(model, validpath, writepath_valid, range(validsize), 'validation set')
+            trainmetrics = testonset(model, trainpath, writepath_train, monitor_indices, 'training set')
+            validmetrics = testonset(model, validpath, writepath_valid, range(validsize), 'validation set')
             
             
             # test sets

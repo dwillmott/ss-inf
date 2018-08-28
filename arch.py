@@ -24,6 +24,17 @@ def SelfCartesianShape(input_shape):
     return [shape[0], shape[1], shape[1], shape[2]*2]
 
 
+def weighted_binary_cross_entropy(labels, logits):
+    weight = 5
+    class_weights = labels*weight + (1 - labels)
+    unweighted_losses = K.binary_crossentropy(target=labels, output=logits)
+    
+    weighted_losses = unweighted_losses * class_weights
+    
+    loss = K.mean(tf.matrix_band_part(K.squeeze(weighted_losses, -1), 0, -1))
+    return loss
+
+
 # ARCHITECTURE
 
 def makemodel(LSTMlayers, BN, weight, reg, lr):

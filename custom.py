@@ -147,7 +147,7 @@ def get_metrics(y, yhat, threshold = 0.5):
 def makepairs(originalstructure, threshold = 0.5, nested = False):
     structure = np.copy(originalstructure)
     pairs = []
-    while np.any(structure > 0.5):
+    while np.any(structure > threshold):
         newpair = np.unravel_index(np.argmax(structure), structure.shape)
         #pairs.add(newpair)
         pairs.append(newpair)
@@ -159,6 +159,7 @@ def makepairs(originalstructure, threshold = 0.5, nested = False):
             structure[newpair[0]] = 0
             structure[:,newpair[1]] = 0
     
+    print(threshold, len(pairs))
     return pairs
 
 
